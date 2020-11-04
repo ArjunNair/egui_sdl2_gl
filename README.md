@@ -1,0 +1,24 @@
+# Egui backend for SDL2 + Open GL
+
+This is a backend implementation for [Egui](https://github.com/emilk/egui) that can be used with [SDL 2](https://github.com/Rust-SDL2/rust-sdl2) for events, audio, input et al and [OpenGL](https://github.com/brendanzab/gl-rs) for rendering.
+
+I've included an example in the examples folder to illustrate how the three can be used together. To run the example, do the following:
+```
+cargo build --examples
+cargo run --example example
+```
+
+You **must** set up the SDL2 framework - as described in the SDL2 repo above - for compiling and running of not just the example, but any SDL2 based application. The application won't run without the SDL2 library obviously.
+
+Note that using OpenGL involves wrapping **any**  Open GL call in an *unsafe* block. Have a look at the src/painter.rs file to see what I mean. This of course means that all bets are off when dealing with code inside the unsafe blocks, but that's the price to pay when dealing with raw Open GL. 
+
+Why would anyone want to use this then, you wonder? Well I would say the familiarity of using SDL2, the elegance of Egui and the power of OpenGL makes for a good combination in making games, emulators, graphics tools and such.
+
+As far as the implementation goes, I've used Emil's original egui_glium and egui_web backends (see the egui github for source) as guides to implement this version, but have deviated in a couple of ways: 
+
+1. It doesn't use the App architecture as used in the original code because I wanted to keep it as simple as possible. 
+2. I've added a *update_user_texture_data* method to the painter class, which allows for easy dynamic updating of textures that need to be managed by Egui (to render in an Image control, say). See examples/example.rs to see how this can be useful.
+
+I'm not an expert in Egui, Open GL or Rust for that matter. Please do submit an issue ticket (or better, send a PR!) if you spot something something that's out of whack in so far as the backend implementation goes. Issues regarding SDL2, Egui or OpenGL should be directed towards their respective repository owners!
+
+Note: The output from Egui isn't handled currently. So you will not see cursor changes or be able to copy-paste text to/from Egui.

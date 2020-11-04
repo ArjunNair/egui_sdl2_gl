@@ -1,0 +1,19 @@
+[package]
+name = "egui_sdl2_gl"
+version = "0.1.0"
+authors = ["ArjunNair <arjunair@gmail.com>"]
+edition = "2018"
+description = "Bindings for using Egui natively using the sdl2-rs and gl-rs libraries"
+homepage = "https://github.com/ArjunNair/egui_sdl2_gl"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/ArjunNair/egui_sdl2_gl"
+categories = ["gui", "graphics"]
+keywords = ["sdl2", "opengl", "egui", "gui", "gamedev"]
+include = [ "**/*.rs", "Cargo.toml"]
+
+[dependencies]
+sdl2 = "0.34"
+gl = "0.14.0"
+clipboard = "0.5"
+egui = { version = "0.2.0", features = ["serde", "serde_json"] }
