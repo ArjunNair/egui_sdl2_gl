@@ -1,11 +1,11 @@
 [package]
 name = "egui_sdl2_gl"
 version = "0.1.0"
-authors = ["ArjunNair <arjunair@gmail.com>"]
+authors = ["Arjun Nair <arjunair@gmail.com>"]
 edition = "2018"
-description = "Bindings for using Egui natively using the sdl2-rs and gl-rs libraries"
+description = "Backend for Egui to use with sdl2-rs and open gl"
 homepage = "https://github.com/ArjunNair/egui_sdl2_gl"
-license = "MIT OR Apache-2.0"
+license = "MIT"
 readme = "README.md"
 repository = "https://github.com/ArjunNair/egui_sdl2_gl"
 categories = ["gui", "graphics"]
