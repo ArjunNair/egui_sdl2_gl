@@ -31,7 +31,7 @@ fn main() {
     // Create a window context
     let _ctx = window.gl_create_context().unwrap();
 
-    let mut painter = egui_sdl2::Painter::new(&video_subsystem, SCREEN_WIDTH, SCREEN_HEIGHT);
+    let mut painter = egui_sdl2_gl::Painter::new(&video_subsystem, SCREEN_WIDTH, SCREEN_HEIGHT);
     let mut egui_ctx = egui::Context::new();
 
     debug_assert_eq!(gl_attr.context_profile(), GLProfile::Core);
@@ -51,7 +51,7 @@ fn main() {
 
     let start_time = Instant::now();
 
-    let mut clipboard = egui_sdl2::init_clipboard();
+    let mut clipboard = egui_sdl2_gl::init_clipboard();
     let mut srgba: Vec<Srgba> = Vec::new();
 
      //For now we will just set everything to black, because
@@ -123,7 +123,7 @@ fn main() {
                     break 'running
                 },
                 _ => {
-                    egui_sdl2::input_to_egui(event, clipboard.as_mut(), &mut raw_input);
+                    egui_sdl2_gl::input_to_egui(event, clipboard.as_mut(), &mut raw_input);
                 }
             }
         }

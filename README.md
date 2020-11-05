@@ -1,4 +1,5 @@
 # Egui backend for SDL2 + Open GL
+![Example screenshot](/media/egui_sdl2_gl_example.png)
 
 This is a backend implementation for [Egui](https://github.com/emilk/egui) that can be used with [SDL 2](https://github.com/Rust-SDL2/rust-sdl2) for events, audio, input et al and [OpenGL](https://github.com/brendanzab/gl-rs) for rendering.
 
