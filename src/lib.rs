@@ -8,10 +8,10 @@ pub use painter::Painter;
 use {
     clipboard::ClipboardProvider,
     egui::*,
-    sdl2::{event::WindowEvent, mouse::MouseButton, mouse::SystemCursor, keyboard::Keycode}
+    sdl2::{event::WindowEvent, mouse::MouseButton, mouse::SystemCursor, keyboard::{Keycode, Mod} }
 };
 
-pub use clipboard::ClipboardContext; // TODO: remove
+use clipboard::ClipboardContext; // TODO: remove
 
 pub fn input_to_egui(
     event: sdl2::event::Event,
@@ -43,16 +43,23 @@ pub fn input_to_egui(
             ));
         }
 
-        KeyDown {keycode, .. } => {
+        KeyDown {keycode, keymod, .. } => {
             if let Some(key) = translate_virtual_key_code(keycode.unwrap()) {
                 raw_input.events.push(Event::Key {
                     key,
-                    pressed: true
+                    pressed: true,
+                    modifiers: Modifiers {
+                       alt: keymod == Mod::LALTMOD | Mod::RALTMOD,
+                       ctrl: keymod == Mod::LCTRLMOD | Mod::RCTRLMOD,
+                       shift: keymod == Mod::LSHIFTMOD | Mod::RSHIFTMOD,
+                       mac_cmd: keymod == Mod::LGUIMOD,
+                       command: keymod == Mod::LCTRLMOD | Mod::LGUIMOD
+                    }
                 });
             }
         }
 
-        KeyUp {keycode, .. } => {
+        KeyUp {keycode, keymod, .. } => {
             match keycode.unwrap() {
                 Keycode::Cut => {
                     raw_input.events.push(Event::Cut)
@@ -76,7 +83,14 @@ pub fn input_to_egui(
                     if let Some(key) = translate_virtual_key_code(keycode.unwrap()) {
                         raw_input.events.push(Event::Key {
                             key,
-                            pressed: false
+                            pressed: false,
+                                modifiers: Modifiers {
+                                alt: keymod == Mod::LALTMOD | Mod::RALTMOD,
+                                ctrl: keymod == Mod::LCTRLMOD | Mod::RCTRLMOD,
+                                shift: keymod == Mod::LSHIFTMOD | Mod::RSHIFTMOD,
+                                mac_cmd: keymod == Mod::LGUIMOD,
+                                command: keymod == Mod::LCTRLMOD | Mod::LGUIMOD
+                            }
                         });
                     }
                 }
@@ -104,20 +118,14 @@ pub fn translate_virtual_key_code(key: sdl2::keyboard::Keycode) -> Option<egui::
         End => Key::End,
         PageDown => Key::PageDown,
         PageUp => Key::PageUp,
-        Left => Key::Left,
-        Up => Key::Up,
-        Right => Key::Right,
-        Down => Key::Down,
+        Left => Key::ArrowLeft,
+        Up => Key::ArrowUp,
+        Right => Key::ArrowRight,
+        Down => Key::ArrowDown,
         Backspace => Key::Backspace,
         Return => Key::Enter,
         // Space => Key::Space,
         Tab => Key::Tab,
-
-        LAlt | RAlt => Key::Alt,
-        LShift | RShift => Key::Shift,
-        LCtrl | RCtrl => Key::Control,
-        LGui  => Key::Logo,
-
         _ => {
             return None;
         }
@@ -133,6 +141,10 @@ pub fn translate_cursor(cursor_icon: egui::CursorIcon) -> sdl2::mouse::SystemCur
         CursorIcon::ResizeNwSe => SystemCursor::SizeNWSE,
         CursorIcon::ResizeVertical => SystemCursor::SizeNS,
         CursorIcon::Text => SystemCursor::IBeam,
+
+        //There doesn't seem to be a suitable SDL equivalent...
+        CursorIcon::Grab => SystemCursor::Hand,
+        CursorIcon::Grabbing => SystemCursor::Hand
     }
 }
 

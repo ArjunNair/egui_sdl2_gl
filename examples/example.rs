@@ -71,10 +71,11 @@ fn main() {
     let mut sine_shift = 0f32;
     let mut angle = 0f32;
     let mut amplitude: f32 = 50f32;
-
+    
     'running: loop {
         raw_input.time = start_time.elapsed().as_nanos() as f64 * 1e-9;
-        let ui = egui_ctx.begin_frame(raw_input.take());
+        
+        egui_ctx.begin_frame(raw_input.take());
     
         let mut srgba: Vec<Srgba> = Vec::new();
 
@@ -96,7 +97,7 @@ fn main() {
         //If we weren't updating the texture, this call wouldn't be required.
         painter.update_user_texture_data(chip8_tex_id, &srgba);
 
-        egui::Window::new("Egui with SDL2 events and GL texture").show(ui.ctx(), |ui| {
+        egui::Window::new("Egui with SDL2 events and GL texture").show(&egui_ctx, |ui| {
             //Image just needs a texture id reference, so we just pass it the texture id that was returned to us
             //when we previously initialized the texture.
             ui.add(Image::new(chip8_tex_id, vec2(PIC_WIDTH as f32, PIC_HEIGHT as f32)));
@@ -111,8 +112,8 @@ fn main() {
         });
         
         //We aren't handling the output at the moment.
-        let (_output, paint_jobs) = egui_ctx.end_frame();
-
+        let (_output, paint_cmds) = egui_ctx.end_frame();
+        let paint_jobs = egui_ctx.tesselate(paint_cmds);
         painter.paint_jobs(color::srgba(0, 0, 255, 128), paint_jobs, &egui_ctx.texture(), pixels_per_point);
         window.gl_swap_window();
 
