@@ -87,11 +87,13 @@ pub fn input_to_egui(
                             key,
                             pressed: false,
                                 modifiers: Modifiers {
-                                alt: keymod == Mod::LALTMOD | Mod::RALTMOD,
-                                ctrl: keymod == Mod::LCTRLMOD | Mod::RCTRLMOD,
-                                shift: keymod == Mod::LSHIFTMOD | Mod::RSHIFTMOD,
-                                mac_cmd: keymod == Mod::LGUIMOD,
-                                command: keymod == Mod::LCTRLMOD | Mod::LGUIMOD
+                                alt: (keymod & Mod::LALTMOD == Mod::LALTMOD) || (keymod & Mod::RALTMOD == Mod::RALTMOD),
+                                ctrl:  (keymod & Mod::LCTRLMOD == Mod::LCTRLMOD) || (keymod & Mod::RCTRLMOD == Mod::RCTRLMOD),
+                                shift:  (keymod & Mod::LSHIFTMOD == Mod::LSHIFTMOD) || (keymod & Mod::RSHIFTMOD == Mod::RSHIFTMOD),
+                                mac_cmd: keymod & Mod::LGUIMOD == Mod::LGUIMOD,
+
+                                //TOD: Test on both windows and mac
+                                command:  (keymod & Mod::LCTRLMOD == Mod::LCTRLMOD) || (keymod & Mod::LGUIMOD == Mod::LGUIMOD)
                             }
                         });
                     }
