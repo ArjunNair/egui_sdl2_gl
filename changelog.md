@@ -1,5 +1,8 @@
 # Change log
 
+## v0.1.3
+Fixed dodgy modifier key check.
+
 ## v0.1.2
 Bumped up egui dependency crate to 0.4 (latest as on Dec 13, 2020)
 Fixed example to conform to egui 4.0 changes
