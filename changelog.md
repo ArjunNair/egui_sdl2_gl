@@ -1,5 +1,8 @@
 # Change log
 
+## v0.1.4
+Updated to egui 0.5.0
+
 ## v0.1.3
 Fixed dodgy modifier key check.
 
