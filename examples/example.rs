@@ -17,7 +17,6 @@ const PIC_HEIGHT: i32 = 256;
 fn main() {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
-    //let timer_subsystem = sdl_context.timer().unwrap();
     
     let gl_attr = video_subsystem.gl_attr();
     gl_attr.set_context_profile(GLProfile::Core);
