@@ -22,8 +22,7 @@ pub fn input_to_egui(
     match event {
         //Only the window resize event is handled
         Window {win_event: WindowEvent::Resized(width, height), ..} => {
-                    raw_input.screen_size = egui::vec2(width as f32, height as f32)
-                        / raw_input.pixels_per_point.unwrap();
+                    raw_input.screen_rect = Some(Rect::from_min_size(Pos2::new(0f32, 0f32), egui::vec2(width as f32, height as f32) / raw_input.pixels_per_point.unwrap()))
         }
 
         //MouseButonLeft pressed is the only one needed by egui

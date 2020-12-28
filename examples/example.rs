@@ -6,7 +6,7 @@ use sdl2::keyboard::Keycode;
 use sdl2::video::GLProfile;
 use std::time::Instant;
 
-use egui::{vec2, color, Srgba, Image};
+use egui::{vec2, Rect, color, Pos2, Srgba, Image};
 //use egui_sdl2::Painter;
 
 const SCREEN_WIDTH: u32 = 800;
@@ -31,19 +31,17 @@ fn main() {
     let _ctx = window.gl_create_context().unwrap();
 
     let mut painter = egui_sdl2_gl::Painter::new(&video_subsystem, SCREEN_WIDTH, SCREEN_HEIGHT);
-    let mut egui_ctx = egui::Context::new();
+    let mut egui_ctx = egui::CtxRef::default();
 
     debug_assert_eq!(gl_attr.context_profile(), GLProfile::Core);
     debug_assert_eq!(gl_attr.context_version(), (4, 5));
 
     let mut event_pump = sdl_context.event_pump().unwrap();
     let pixels_per_point = 96f32 / video_subsystem.display_dpi(0).unwrap().0;
-
+    let (width, height) = window.size();
+ 
     let mut raw_input = egui::RawInput {
-        screen_size: {
-            let (width, height) = window.size();
-            vec2(width as f32, height as f32) / pixels_per_point
-        },
+        screen_rect: Some(Rect::from_min_size(Pos2::new(0f32, 0f32), vec2(width as f32, height as f32) / pixels_per_point)),
         pixels_per_point: Some(pixels_per_point),
         ..Default::default()
     };
@@ -72,7 +70,7 @@ fn main() {
     let mut amplitude: f32 = 50f32;
     
     'running: loop {
-        raw_input.time = start_time.elapsed().as_nanos() as f64 * 1e-9;
+        raw_input.time = Some(start_time.elapsed().as_nanos() as f64 * 1e-9);
         
         egui_ctx.begin_frame(raw_input.take());
     
