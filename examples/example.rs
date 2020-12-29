@@ -20,7 +20,9 @@ fn main() {
     
     let gl_attr = video_subsystem.gl_attr();
     gl_attr.set_context_profile(GLProfile::Core);
-    gl_attr.set_context_version(4, 5);
+
+    // OpenGL 3.2 is the minimum that we will support.
+    gl_attr.set_context_version(3, 2);
 
     let window = video_subsystem.window("Demo: Egui backend for SDL2 + GL", SCREEN_WIDTH, SCREEN_HEIGHT)
         .opengl()
@@ -34,7 +36,7 @@ fn main() {
     let mut egui_ctx = egui::CtxRef::default();
 
     debug_assert_eq!(gl_attr.context_profile(), GLProfile::Core);
-    debug_assert_eq!(gl_attr.context_version(), (4, 5));
+    debug_assert_eq!(gl_attr.context_version(), (3, 2));
 
     let mut event_pump = sdl_context.event_pump().unwrap();
     let pixels_per_point = 96f32 / video_subsystem.display_dpi(0).unwrap().0;

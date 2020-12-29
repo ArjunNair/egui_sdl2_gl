@@ -33,21 +33,21 @@ struct UserTexture {
     dirty: bool
 }
 
-static VS_SRC: &str = r#"
-    precision mediump float;
+const VS_SRC: &str = r#"
+    #version 150
     uniform vec2 u_screen_size;
-    attribute vec2 a_pos;
-    attribute vec2 a_tc;
-    attribute vec4 a_srgba;
-    varying vec4 v_rgba;
-    varying vec2 v_tc;
+    in vec2 a_pos;
+    in vec4 a_srgba; // 0-255 sRGB
+    in vec2 a_tc;
+    out vec4 v_rgba;
+    out vec2 v_tc;
 
     // 0-1 linear  from  0-255 sRGB
     vec3 linear_from_srgb(vec3 srgb) {
         bvec3 cutoff = lessThan(srgb, vec3(10.31475));
         vec3 lower = srgb / vec3(3294.6);
         vec3 higher = pow((srgb + vec3(14.025)) / vec3(269.025), vec3(2.4));
-        return mix(higher, lower, vec3(cutoff));
+        return mix(higher, lower, cutoff);
     }
 
     vec4 linear_from_srgba(vec4 srgba) {
@@ -65,11 +65,12 @@ static VS_SRC: &str = r#"
     }
 "#;
 
-static FS_SRC: &str = r#"
-    precision mediump float;
+const FS_SRC: &str = r#"
+    #version 150
     uniform sampler2D u_sampler;
-    varying vec4 v_rgba;
-    varying vec2 v_tc;
+    in vec4 v_rgba;
+    in vec2 v_tc;
+    out vec4 f_color;
 
     // 0-255 sRGB  from  0-1 linear
     vec3 srgb_from_linear(vec3 rgb) {
@@ -82,8 +83,7 @@ static FS_SRC: &str = r#"
     vec4 srgba_from_linear(vec4 rgba) {
         return vec4(srgb_from_linear(rgba.rgb), 255.0 * rgba.a);
     }
-
-    // 0-1 linear  from  0-255 sRGB
+    
     vec3 linear_from_srgb(vec3 srgb) {
         bvec3 cutoff = lessThan(srgb, vec3(10.31475));
         vec3 lower = srgb / vec3(3294.6);
@@ -96,9 +96,12 @@ static FS_SRC: &str = r#"
     }
 
     void main() {
-        vec4 texture_rgba = linear_from_srgba(texture2D(u_sampler, v_tc) * 255.0);
-        gl_FragColor = srgba_from_linear(v_rgba * texture_rgba) / 255.0;
-        //gl_FragColor = v_rgba * texture2D(u_sampler, v_tc) * 255.0;
+        // Need to convert from SRGBA to linear.
+        vec4 texture_rgba = linear_from_srgba(texture(u_sampler, v_tc) * 255.0);
+        f_color = srgba_from_linear(v_rgba * texture_rgba) / 255.0;
+
+        // If the gl implementation doesn't require conversion:
+        //f_color = v_rgba * texture(u_sampler, v_tc);
     }
 "#;
 
