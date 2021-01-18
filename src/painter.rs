@@ -1,15 +1,16 @@
-extern crate sdl2;
 extern crate gl;
+extern crate sdl2;
 use gl::types::*;
+use sdl2::pixels::Color;
 use std::ffi::CString;
+use std::mem;
+use std::os::raw::c_void;
 use std::ptr;
 use std::str;
-use std::os::raw::c_void;
-use std::mem;
 
 use egui::{
     math::clamp,
-    paint::{PaintJobs, Srgba, Texture, Triangles},
+    paint::{Color32, PaintJobs, Texture, Triangles},
     vec2,
 };
 
@@ -30,7 +31,7 @@ struct UserTexture {
     /// User textures can be modified and this flag
     /// is used to indicate if pixel data for the
     /// texture has been updated.
-    dirty: bool
+    dirty: bool,
 }
 
 const VS_SRC: &str = r#"
@@ -120,10 +121,8 @@ pub struct Painter {
     user_textures: Vec<UserTexture>,
 }
 
-fn compile_shader(
-    src: &str, ty: GLenum
-) -> GLuint {
-    let shader; 
+fn compile_shader(src: &str, ty: GLenum) -> GLuint {
+    let shader;
     unsafe {
         shader = gl::CreateShader(ty);
         // Attempt to compile the shader
@@ -149,8 +148,7 @@ fn compile_shader(
             );
             panic!(
                 "{}",
-                str::from_utf8(&buf)
-                    .expect("ShaderInfoLog not valid utf8")
+                str::from_utf8(&buf).expect("ShaderInfoLog not valid utf8")
             );
         }
     }
@@ -181,8 +179,7 @@ fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
             );
             panic!(
                 "{}",
-                str::from_utf8(&buf)
-                    .expect("ProgramInfoLog not valid utf8")
+                str::from_utf8(&buf).expect("ProgramInfoLog not valid utf8")
             );
         }
         program
@@ -190,7 +187,11 @@ fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
 }
 
 impl Painter {
-    pub fn new(video_subsystem: &sdl2::VideoSubsystem, canvas_width: u32, canvas_height: u32) -> Painter {
+    pub fn new(
+        video_subsystem: &sdl2::VideoSubsystem,
+        canvas_width: u32,
+        canvas_height: u32,
+    ) -> Painter {
         unsafe {
             let mut egui_texture = 0;
             gl::load_with(|name| video_subsystem.gl_get_proc_address(name) as *const _);
@@ -236,8 +237,8 @@ impl Painter {
     pub fn new_user_texture(
         &mut self,
         size: (usize, usize),
-        srgba_pixels: &[Srgba],
-        filtering: bool
+        srgba_pixels: &[Color32],
+        filtering: bool,
     ) -> egui::TextureId {
         assert_eq!(size.0 * size.1, srgba_pixels.len());
 
@@ -255,7 +256,7 @@ impl Painter {
             pixels,
             texture: None,
             filtering,
-            dirty: true
+            dirty: true,
         });
         id
     }
@@ -267,7 +268,7 @@ impl Painter {
 
         let mut pixels: Vec<u8> = Vec::with_capacity(texture.pixels.len() * 4);
         for &alpha in &texture.pixels {
-            let srgba = Srgba::white_alpha(alpha);
+            let srgba = Color32::from_white_alpha(alpha);
             pixels.push(srgba.r());
             pixels.push(srgba.g());
             pixels.push(srgba.b());
@@ -299,14 +300,14 @@ impl Painter {
     }
 
     fn upload_user_textures(&mut self) {
-        unsafe {        
+        unsafe {
             for user_texture in &mut self.user_textures {
                 if !user_texture.texture.is_none() && !user_texture.dirty {
                     continue;
                 }
                 let pixels = std::mem::take(&mut user_texture.pixels);
 
-                if user_texture.texture.is_none() {   
+                if user_texture.texture.is_none() {
                     let mut gl_texture = 0;
                     gl::GenTextures(1, &mut gl_texture);
                     gl::BindTexture(gl::TEXTURE_2D, gl_texture);
@@ -314,16 +315,30 @@ impl Painter {
                     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
 
                     if user_texture.filtering {
-                        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
-                        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-                    }
-                    else {
-                        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
-                        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
+                        gl::TexParameteri(
+                            gl::TEXTURE_2D,
+                            gl::TEXTURE_MIN_FILTER,
+                            gl::LINEAR as i32,
+                        );
+                        gl::TexParameteri(
+                            gl::TEXTURE_2D,
+                            gl::TEXTURE_MAG_FILTER,
+                            gl::LINEAR as i32,
+                        );
+                    } else {
+                        gl::TexParameteri(
+                            gl::TEXTURE_2D,
+                            gl::TEXTURE_MIN_FILTER,
+                            gl::NEAREST as i32,
+                        );
+                        gl::TexParameteri(
+                            gl::TEXTURE_2D,
+                            gl::TEXTURE_MAG_FILTER,
+                            gl::NEAREST as i32,
+                        );
                     }
                     user_texture.texture = Some(gl_texture);
-                }
-                else {
+                } else {
                     gl::BindTexture(gl::TEXTURE_2D, user_texture.texture.unwrap());
                 }
 
@@ -343,7 +358,7 @@ impl Painter {
                     src_format,
                     src_type,
                     pixels.as_ptr() as *const c_void,
-                ); 
+                );
 
                 user_texture.dirty = false;
             }
@@ -362,9 +377,9 @@ impl Painter {
         }
     }
 
-    pub fn update_user_texture_data(&mut self, texture_id: egui::TextureId, pixels: &[Srgba]) {
+    pub fn update_user_texture_data(&mut self, texture_id: egui::TextureId, pixels: &[Color32]) {
         match texture_id {
-            egui::TextureId::Egui => {},
+            egui::TextureId::Egui => {}
             egui::TextureId::User(id) => {
                 let id = id as usize;
                 assert!(id < self.user_textures.len());
@@ -383,11 +398,11 @@ impl Painter {
 
     pub fn paint_jobs(
         &mut self,
-        bg_color: Srgba,
+        bg_color: Color32,
         jobs: PaintJobs,
         egui_texture: &Texture,
         pixels_per_point: f32,
-    )  {
+    ) {
         self.upload_egui_texture(egui_texture);
         self.upload_user_textures();
 
@@ -400,7 +415,7 @@ impl Painter {
             );
 
             gl::Clear(gl::COLOR_BUFFER_BIT);
-            
+
             gl::Enable(gl::SCISSOR_TEST);
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::ONE, gl::ONE_MINUS_SRC_ALPHA); // premultiplied alpha
@@ -421,17 +436,11 @@ impl Painter {
             let u_sampler_ptr = u_sampler.as_ptr();
             let u_sampler_loc = gl::GetUniformLocation(self.program, u_sampler_ptr);
             gl::Uniform1i(u_sampler_loc, 0);
-            gl::Viewport(
-                0,
-                0,
-                self.canvas_width as i32,
-                self.canvas_height as i32,
-            );
+            gl::Viewport(0, 0, self.canvas_width as i32, self.canvas_height as i32);
 
-    
             for (clip_rect, triangles) in jobs {
                 gl::BindTexture(gl::TEXTURE_2D, self.get_texture(triangles.texture_id));
-                
+
                 let clip_min_x = pixels_per_point * clip_rect.min.x;
                 let clip_min_y = pixels_per_point * clip_rect.min.y;
                 let clip_max_x = pixels_per_point * clip_rect.max.x;
@@ -452,12 +461,11 @@ impl Painter {
                     clip_max_x - clip_min_x,
                     clip_max_y - clip_min_y,
                 );
-                
+
                 for triangle in triangles.split_to_u16() {
                     self.paint_triangles(&triangle);
                 }
                 gl::Disable(gl::SCISSOR_TEST);
-               
             }
         }
     }
@@ -496,7 +504,6 @@ impl Painter {
         }
 
         unsafe {
-            
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.index_buffer);
             gl::BufferData(
                 gl::ELEMENT_ARRAY_BUFFER,
@@ -509,13 +516,13 @@ impl Painter {
             // --------------------------------------------------------------------
             gl::BindBuffer(gl::ARRAY_BUFFER, self.pos_buffer);
             gl::BufferData(
-                gl::ARRAY_BUFFER, 
+                gl::ARRAY_BUFFER,
                 (positions.len() * mem::size_of::<f32>()) as GLsizeiptr,
-                //mem::transmute(&positions.as_ptr()), 
+                //mem::transmute(&positions.as_ptr()),
                 positions.as_ptr() as *const gl::types::GLvoid,
-                gl::STREAM_DRAW
+                gl::STREAM_DRAW,
             );
-           
+
             let a_pos = CString::new("a_pos").unwrap();
             let a_pos_ptr = a_pos.as_ptr();
             let a_pos_loc = gl::GetAttribLocation(self.program, a_pos_ptr);
@@ -530,11 +537,11 @@ impl Painter {
 
             gl::BindBuffer(gl::ARRAY_BUFFER, self.tc_buffer);
             gl::BufferData(
-                gl::ARRAY_BUFFER, 
+                gl::ARRAY_BUFFER,
                 (tex_coords.len() * mem::size_of::<f32>()) as GLsizeiptr,
-                //mem::transmute(&tex_coords.as_ptr()), 
+                //mem::transmute(&tex_coords.as_ptr()),
                 tex_coords.as_ptr() as *const gl::types::GLvoid,
-                gl::STREAM_DRAW
+                gl::STREAM_DRAW,
             );
 
             let a_tc = CString::new("a_tc").unwrap();
@@ -550,14 +557,14 @@ impl Painter {
             // --------------------------------------------------------------------
             gl::BindBuffer(gl::ARRAY_BUFFER, self.color_buffer);
             gl::BufferData(
-                gl::ARRAY_BUFFER, 
+                gl::ARRAY_BUFFER,
                 (colors.len() * mem::size_of::<u8>()) as GLsizeiptr,
-                //mem::transmute(&colors.as_ptr()),  
+                //mem::transmute(&colors.as_ptr()),
                 colors.as_ptr() as *const gl::types::GLvoid,
-                gl::STREAM_DRAW
+                gl::STREAM_DRAW,
             );
 
-            let a_srgba =  CString::new("a_srgba").unwrap();
+            let a_srgba = CString::new("a_srgba").unwrap();
             let a_srgba_ptr = a_srgba.as_ptr();
             let a_srgba_loc = gl::GetAttribLocation(self.program, a_srgba_ptr);
             assert!(a_srgba_loc >= 0);
@@ -576,8 +583,12 @@ impl Painter {
 
             // --------------------------------------------------------------------
 
-            gl::DrawElements(gl::TRIANGLES, indices.len() as i32, gl::UNSIGNED_SHORT, ptr::null());
-            
+            gl::DrawElements(
+                gl::TRIANGLES,
+                indices.len() as i32,
+                gl::UNSIGNED_SHORT,
+                ptr::null(),
+            );
         }
     }
 }
