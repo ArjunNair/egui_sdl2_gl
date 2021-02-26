@@ -22,4 +22,4 @@ As far as the implementation goes, I've used Emil's original egui_glium and egui
 
 I'm not an expert in Egui, Open GL or Rust for that matter. Please do submit an issue ticket (or better, send a PR!) if you spot something something that's out of whack in so far as the backend implementation goes. Issues regarding SDL2, Egui or OpenGL should be directed towards their respective repository owners!
 
-Note: The output from Egui isn't handled currently. So you will not see cursor changes or be able to copy-paste text to/from Egui.
+Note: There is limited support for the output from Egui itself. For example: cut, copy and paste of text is supported but cursor change feedback isn't.

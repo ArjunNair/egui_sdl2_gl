@@ -1,5 +1,12 @@
 # Change log
 
+# v0.1.8
+* Updated to egui 0.9.0.
+* Better key input and text handling.
+* Added cut, copy and paste support to the backend.
+* Updated screenshot
+* Fixed example sine wave speeding up unexpectedly after some time.
+
 # v0.1.7
 Updated to egui 0.8.0
 

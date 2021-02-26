@@ -1,13 +1,14 @@
 extern crate gl;
 extern crate sdl2;
 
-use sdl2::keyboard::Keycode;
 use sdl2::video::GLProfile;
-use sdl2::{event::Event, pixels::Color};
+use sdl2::{event::Event};
 use std::time::Instant;
 
-use egui::{color, vec2, Color32, Image, Pos2, Rect};
-//use egui_sdl2::Painter;
+use egui::{vec2, Color32, Image, Pos2, Rect};
+
+//Alias the backend to something less mouthful
+use egui_sdl2_gl as egui_backend;
 
 const SCREEN_WIDTH: u32 = 800;
 const SCREEN_HEIGHT: u32 = 600;
@@ -37,7 +38,7 @@ fn main() {
     // Create a window context
     let _ctx = window.gl_create_context().unwrap();
 
-    let mut painter = egui_sdl2_gl::Painter::new(&video_subsystem, SCREEN_WIDTH, SCREEN_HEIGHT);
+    let mut painter = egui_backend::Painter::new(&video_subsystem, SCREEN_WIDTH, SCREEN_HEIGHT);
     let mut egui_ctx = egui::CtxRef::default();
 
     debug_assert_eq!(gl_attr.context_profile(), GLProfile::Core);
@@ -46,19 +47,17 @@ fn main() {
     let mut event_pump = sdl_context.event_pump().unwrap();
     let pixels_per_point = 96f32 / video_subsystem.display_dpi(0).unwrap().0;
     let (width, height) = window.size();
-
-    let mut raw_input = egui::RawInput {
+    
+    let mut egui_input_state = egui_backend::EguiInputState::new(egui::RawInput {
         screen_rect: Some(Rect::from_min_size(
             Pos2::new(0f32, 0f32),
             vec2(width as f32, height as f32) / pixels_per_point,
         )),
         pixels_per_point: Some(pixels_per_point),
         ..Default::default()
-    };
+    });
 
     let start_time = Instant::now();
-
-    let mut clipboard = egui_sdl2_gl::init_clipboard();
     let mut srgba: Vec<Color32> = Vec::new();
 
     //For now we will just set everything to black, because
@@ -77,16 +76,17 @@ fn main() {
 
     //Some variables to help draw a sine wave
     let mut sine_shift = 0f32;
-    let mut angle = 0f32;
+    
     let mut amplitude: f32 = 50f32;
+    let mut test_str: String = "A text box to write text in. Cut, copy, paste commands are available.".to_owned();
 
     'running: loop {
-        raw_input.time = Some(start_time.elapsed().as_nanos() as f64 * 1e-9);
+        egui_input_state.input.time = Some(start_time.elapsed().as_secs_f64());
 
-        egui_ctx.begin_frame(raw_input.take());
+        egui_ctx.begin_frame(egui_input_state.input.take());
 
         let mut srgba: Vec<Color32> = Vec::new();
-
+        let mut angle = 0f32;
         //Draw a cool sine wave in a buffer.
         for y in 0..PIC_HEIGHT {
             for x in 0..PIC_WIDTH {
@@ -110,17 +110,24 @@ fn main() {
             //when we previously initialized the texture.
             ui.add(Image::new(chip8_tex_id, vec2(PIC_WIDTH as f32, PIC_HEIGHT as f32)));
             ui.separator();
-            ui.label("A simple sine wave plotted via some probably dodgy math. The GL texture is dynamically updated and blitted to an Egui managed Image.");
+            ui.label("A simple sine wave plotted via some probably dodgy math. The GL texture is dynamically updated and blitted to an egui managed Image.");
+            ui.label(" ");
+            ui.text_edit_multiline(&mut test_str);
             ui.label(" ");
             ui.add(egui::Slider::f32(&mut amplitude, 0.0..=100.0).text("Amplitude"));
             ui.label(" ");
-            if ui.button("Quit").clicked {
+            if ui.button("Quit").clicked() {
                 std::process::exit(0);
             }
         });
 
-        //We aren't handling the output at the moment.
-        let (_output, paint_cmds) = egui_ctx.end_frame();
+        let (egui_output, paint_cmds) = egui_ctx.end_frame();
+       
+        //Handle cut, copy text from egui
+        if !egui_output.copied_text.is_empty() {
+            egui_backend::copy_to_clipboard(&mut egui_input_state, egui_output.copied_text);
+        }
+        
         let paint_jobs = egui_ctx.tessellate(paint_cmds);
         painter.paint_jobs(
             Color32::from_rgba_premultiplied(0, 0, 255, 0),
@@ -129,17 +136,14 @@ fn main() {
             pixels_per_point,
         );
         window.gl_swap_window();
-
+        
         //Using regular SDL2 event pipeline
         for event in event_pump.poll_iter() {
             match event {
-                Event::Quit { .. }
-                | Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    ..
-                } => break 'running,
+                Event::Quit { .. } => break 'running,
                 _ => {
-                    egui_sdl2_gl::input_to_egui(event, clipboard.as_mut(), &mut raw_input);
+                    
+                    egui_backend::input_to_egui(event, &mut egui_input_state);
                 }
             }
         }

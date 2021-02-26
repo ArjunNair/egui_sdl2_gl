@@ -1,7 +1,6 @@
 extern crate gl;
 extern crate sdl2;
 use gl::types::*;
-use sdl2::pixels::Color;
 use std::ffi::CString;
 use std::mem;
 use std::os::raw::c_void;
@@ -10,7 +9,8 @@ use std::str;
 
 use egui::{
     math::clamp,
-    paint::{Color32, PaintJobs, Texture, Triangles},
+    ClippedMesh,
+    paint::{Color32, Texture, Mesh},
     vec2,
 };
 
@@ -399,7 +399,7 @@ impl Painter {
     pub fn paint_jobs(
         &mut self,
         bg_color: Color32,
-        jobs: PaintJobs,
+        meshes: Vec<ClippedMesh>,
         egui_texture: &Texture,
         pixels_per_point: f32,
     ) {
@@ -438,8 +438,8 @@ impl Painter {
             gl::Uniform1i(u_sampler_loc, 0);
             gl::Viewport(0, 0, self.canvas_width as i32, self.canvas_height as i32);
 
-            for (clip_rect, triangles) in jobs {
-                gl::BindTexture(gl::TEXTURE_2D, self.get_texture(triangles.texture_id));
+            for ClippedMesh(clip_rect, mesh) in meshes {
+                gl::BindTexture(gl::TEXTURE_2D, self.get_texture(mesh.texture_id));
 
                 let clip_min_x = pixels_per_point * clip_rect.min.x;
                 let clip_min_y = pixels_per_point * clip_rect.min.y;
@@ -462,9 +462,7 @@ impl Painter {
                     clip_max_y - clip_min_y,
                 );
 
-                for triangle in triangles.split_to_u16() {
-                    self.paint_triangles(&triangle);
-                }
+                self.paint_mesh(&mesh);
                 gl::Disable(gl::SCISSOR_TEST);
             }
         }
@@ -482,21 +480,21 @@ impl Painter {
         }
     }
 
-    fn paint_triangles(&self, triangles: &Triangles) {
-        debug_assert!(triangles.is_valid());
-        let indices: Vec<u16> = triangles.indices.iter().map(|idx| *idx as u16).collect();
+    fn paint_mesh(&self, mesh: &Mesh) {
+        debug_assert!(mesh.is_valid());
+        let indices: Vec<u16> = mesh.indices.iter().map(|idx| *idx as u16).collect();
 
-        let mut positions: Vec<f32> = Vec::with_capacity(2 * triangles.vertices.len());
-        let mut tex_coords: Vec<f32> = Vec::with_capacity(2 * triangles.vertices.len());
-        for v in &triangles.vertices {
+        let mut positions: Vec<f32> = Vec::with_capacity(2 * mesh.vertices.len());
+        let mut tex_coords: Vec<f32> = Vec::with_capacity(2 * mesh.vertices.len());
+        for v in &mesh.vertices {
             positions.push(v.pos.x);
             positions.push(v.pos.y);
             tex_coords.push(v.uv.x);
             tex_coords.push(v.uv.y);
         }
 
-        let mut colors: Vec<u8> = Vec::with_capacity(4 * triangles.vertices.len());
-        for v in &triangles.vertices {
+        let mut colors: Vec<u8> = Vec::with_capacity(4 * mesh.vertices.len());
+        for v in &mesh.vertices {
             colors.push(v.color[0]);
             colors.push(v.color[1]);
             colors.push(v.color[2]);
