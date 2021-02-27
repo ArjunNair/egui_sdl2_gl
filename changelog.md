@@ -1,5 +1,10 @@
 # Change log
 
+# v0.1.9
+* Made the background clear optional in Painter. This allows mixing custom Open GL draw calls with egui.
+* Added an OpenGL Triangle example to demonstrate the above.
+* Minor house keeping.
+
 # v0.1.8
 * Updated to egui 0.9.0.
 * Better key input and text handling.

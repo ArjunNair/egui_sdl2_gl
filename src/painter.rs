@@ -9,9 +9,8 @@ use std::str;
 
 use egui::{
     math::clamp,
-    ClippedMesh,
-    paint::{Color32, Texture, Mesh},
-    vec2,
+    paint::{Color32, Mesh, Texture},
+    vec2, ClippedMesh,
 };
 
 #[derive(Default)]
@@ -121,7 +120,7 @@ pub struct Painter {
     user_textures: Vec<UserTexture>,
 }
 
-fn compile_shader(src: &str, ty: GLenum) -> GLuint {
+pub fn compile_shader(src: &str, ty: GLenum) -> GLuint {
     let shader;
     unsafe {
         shader = gl::CreateShader(ty);
@@ -155,7 +154,7 @@ fn compile_shader(src: &str, ty: GLenum) -> GLuint {
     shader
 }
 
-fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
+pub fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
     unsafe {
         let program = gl::CreateProgram();
         gl::AttachShader(program, vs);
@@ -398,7 +397,7 @@ impl Painter {
 
     pub fn paint_jobs(
         &mut self,
-        bg_color: Color32,
+        bg_color: Option<Color32>,
         meshes: Vec<ClippedMesh>,
         egui_texture: &Texture,
         pixels_per_point: f32,
@@ -407,15 +406,16 @@ impl Painter {
         self.upload_user_textures();
 
         unsafe {
-            gl::ClearColor(
-                bg_color[0] as f32 / 255.0,
-                bg_color[1] as f32 / 255.0,
-                bg_color[2] as f32 / 255.0,
-                bg_color[3] as f32 / 255.0,
-            );
+            if let Some(color) = bg_color {
+                gl::ClearColor(
+                    color[0] as f32 / 255.0,
+                    color[1] as f32 / 255.0,
+                    color[2] as f32 / 255.0,
+                    color[3] as f32 / 255.0,
+                );
 
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-
+                gl::Clear(gl::COLOR_BUFFER_BIT);
+            }
             gl::Enable(gl::SCISSOR_TEST);
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::ONE, gl::ONE_MINUS_SRC_ALPHA); // premultiplied alpha
@@ -588,5 +588,11 @@ impl Painter {
                 ptr::null(),
             );
         }
+    }
+}
+
+impl Drop for Painter {
+    fn drop(&mut self) {
+        self.cleanup();
     }
 }
