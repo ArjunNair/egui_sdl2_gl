@@ -98,10 +98,7 @@ const FS_SRC: &str = r#"
     void main() {
         // Need to convert from SRGBA to linear.
         vec4 texture_rgba = linear_from_srgba(texture(u_sampler, v_tc) * 255.0);
-        f_color = srgba_from_linear(v_rgba * texture_rgba) / 255.0;
-
-        // If the gl implementation doesn't require conversion:
-        //f_color = v_rgba * texture(u_sampler, v_tc);
+        f_color = v_rgba * texture_rgba;
     }
 "#;
 
@@ -416,6 +413,11 @@ impl Painter {
 
                 gl::Clear(gl::COLOR_BUFFER_BIT);
             }
+            //Let OpenGL know we are dealing with SRGB colors so that it
+            //can do the blending correctly. Not setting the framebuffer
+            //leads to darkened, oversaturated colors.
+            gl::Enable(gl::FRAMEBUFFER_SRGB);
+
             gl::Enable(gl::SCISSOR_TEST);
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::ONE, gl::ONE_MINUS_SRC_ALPHA); // premultiplied alpha
@@ -465,6 +467,7 @@ impl Painter {
                 self.paint_mesh(&mesh);
                 gl::Disable(gl::SCISSOR_TEST);
             }
+            gl::Disable(gl::FRAMEBUFFER_SRGB);
         }
     }
 

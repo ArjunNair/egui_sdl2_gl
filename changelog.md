@@ -1,5 +1,11 @@
 # Change log
 
+# v0.10.0
+* Fixed SRGB to linear color conversion.
+* Fixed shader error on Mac
+* Fixed triangle example bounds error when amplitude is too high.
+* Updated to egui v0.10.0
+
 # v0.1.9
 * Made the background clear optional in Painter. This allows mixing custom Open GL draw calls with egui.
 * Added an OpenGL Triangle example to demonstrate the above.

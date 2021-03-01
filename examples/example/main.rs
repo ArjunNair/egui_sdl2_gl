@@ -46,18 +46,18 @@ fn main() {
     debug_assert_eq!(gl_attr.context_version(), (3, 2));
 
     let mut event_pump = sdl_context.event_pump().unwrap();
-    let pixels_per_point = 96f32 / video_subsystem.display_dpi(0).unwrap().0;
+    let native_pixels_per_point = 96f32 / video_subsystem.display_dpi(0).unwrap().0;
+    
     let (width, height) = window.size();
 
     let mut egui_input_state = egui_backend::EguiInputState::new(egui::RawInput {
         screen_rect: Some(Rect::from_min_size(
             Pos2::new(0f32, 0f32),
-            vec2(width as f32, height as f32) / pixels_per_point,
+            vec2(width as f32, height as f32) / native_pixels_per_point,
         )),
-        pixels_per_point: Some(pixels_per_point),
+        pixels_per_point: Some(native_pixels_per_point),
         ..Default::default()
     });
-
     let start_time = Instant::now();
     let mut srgba: Vec<Color32> = Vec::new();
 
@@ -88,8 +88,12 @@ fn main() {
 
     'running: loop {
         egui_input_state.input.time = Some(start_time.elapsed().as_secs_f64());
-
         egui_ctx.begin_frame(egui_input_state.input.take());
+
+        //In egui 0.10.0 we seem to be losing the value to pixels_per_point,
+        //so setting it every frame now.
+        //TODO: Investigate if this is the right way.
+        egui_input_state.input.pixels_per_point = Some(native_pixels_per_point);
 
         //An example of how OpenGL can be used to draw custom stuff with egui
         //overlaying it:
@@ -131,7 +135,7 @@ fn main() {
             ui.label(" ");
             ui.text_edit_multiline(&mut test_str);
             ui.label(" ");
-            ui.add(egui::Slider::f32(&mut amplitude, 0.0..=100.0).text("Amplitude"));
+            ui.add(egui::Slider::f32(&mut amplitude, 0.0..=50.0).text("Amplitude"));
             ui.label(" ");
             if ui.button("Quit").clicked() {
                 quit = true;
@@ -151,7 +155,7 @@ fn main() {
         //Use this only if egui is being used for all drawing and you aren't mixing your own Open GL
         //drawing calls with it.
         //Since we are custom drawing an OpenGL Triangle we don't need egui to clear the background.
-        painter.paint_jobs(None, paint_jobs, &egui_ctx.texture(), pixels_per_point);
+        painter.paint_jobs(None, paint_jobs, &egui_ctx.texture(), native_pixels_per_point);
 
         window.gl_swap_window();
 

@@ -11,6 +11,7 @@ use std::ptr;
 use std::str;
 
 const VS_SRC: &'static str = "
+#version 150
 in vec2 position;
 
 void main() {
