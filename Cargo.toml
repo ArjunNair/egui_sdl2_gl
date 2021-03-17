@@ -15,5 +15,13 @@ include = [ "**/*.rs", "Cargo.toml"]
 [dependencies]
 sdl2 = "0.34.3"
 gl = "0.14.0"
-clipboard = "0.5"
 egui = "0.10.0"
+
+[dependencies.clipboard]
+package = "cli-clipboard"
+#version = "0.5"
+version = "0.2"
+optional = true
+
+[features]
+default = ["clipboard"]
