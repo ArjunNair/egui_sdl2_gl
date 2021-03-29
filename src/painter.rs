@@ -103,6 +103,7 @@ const FS_SRC: &str = r#"
 "#;
 
 pub struct Painter {
+    vertex_array: GLuint,
     program: GLuint,
     index_buffer: GLuint,
     pos_buffer: GLuint,
@@ -202,18 +203,20 @@ impl Painter {
             let frag_shader = compile_shader(FS_SRC, gl::FRAGMENT_SHADER);
 
             let program = link_program(vert_shader, frag_shader);
+            let mut vertex_array = 0;
             let mut index_buffer = 0;
             let mut pos_buffer = 0;
             let mut tc_buffer = 0;
             let mut color_buffer = 0;
-            gl::GenVertexArrays(1, &mut index_buffer);
-            gl::BindVertexArray(index_buffer);
+            gl::GenVertexArrays(1, &mut vertex_array);
+            gl::BindVertexArray(vertex_array);
             gl::GenBuffers(1, &mut index_buffer);
             gl::GenBuffers(1, &mut pos_buffer);
             gl::GenBuffers(1, &mut tc_buffer);
             gl::GenBuffers(1, &mut color_buffer);
 
             Painter {
+                vertex_array,
                 program,
                 canvas_width,
                 canvas_height,
@@ -479,7 +482,8 @@ impl Painter {
             gl::DeleteBuffers(1, &self.pos_buffer);
             gl::DeleteBuffers(1, &self.tc_buffer);
             gl::DeleteBuffers(1, &self.color_buffer);
-            gl::DeleteVertexArrays(1, &self.index_buffer);
+            gl::DeleteBuffers(1, &self.index_buffer);
+            gl::DeleteVertexArrays(1, &self.vertex_array);
         }
     }
 
@@ -505,6 +509,7 @@ impl Painter {
         }
 
         unsafe {
+            gl::BindVertexArray(self.vertex_array);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.index_buffer);
             gl::BufferData(
                 gl::ELEMENT_ARRAY_BUFFER,
