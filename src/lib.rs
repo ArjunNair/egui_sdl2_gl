@@ -1,23 +1,33 @@
 #![warn(clippy::all)]
-#![allow(clippy::single_match)] 
+#![allow(clippy::single_match)]
 
 mod painter;
 
 pub use painter::Painter;
 
 use {
-    clipboard::ClipboardProvider,
     egui::*,
-    sdl2::{event::WindowEvent, mouse::MouseButton, mouse::SystemCursor, keyboard::{Keycode, Mod} }
+    sdl2::{
+        event::WindowEvent,
+        keyboard::{Keycode, Mod},
+        mouse::MouseButton,
+        mouse::SystemCursor,
+    },
 };
 
-use clipboard::ClipboardContext; // TODO: remove
+#[cfg(not(feature = "clipboard"))]
+mod clipboard;
+
+use clipboard::{
+    ClipboardContext, // TODO: remove
+    ClipboardProvider,
+};
 
 pub struct EguiInputState {
     pub pointer_pos: Pos2,
     pub clipboard: Option<ClipboardContext>,
     pub input: RawInput,
-    pub modifiers: Modifiers
+    pub modifiers: Modifiers,
 }
 
 impl EguiInputState {
@@ -26,82 +36,88 @@ impl EguiInputState {
             pointer_pos: Pos2::new(0f32, 0f32),
             clipboard: init_clipboard(),
             input,
-            modifiers: Modifiers::default()
+            modifiers: Modifiers::default(),
         }
     }
 }
 
-pub fn input_to_egui(
-    event: sdl2::event::Event,
-    state: &mut EguiInputState
-) {
+pub fn input_to_egui(event: sdl2::event::Event, state: &mut EguiInputState) {
     use sdl2::event::Event::*;
 
     match event {
         //Only the window resize event is handled
-        Window {win_event: WindowEvent::Resized(width, height), ..} => {
-                    state.input.screen_rect = Some(Rect::from_min_size(Pos2::new(0f32, 0f32), egui::vec2(width as f32, height as f32) / state.input.pixels_per_point.unwrap()))
+        Window {
+            win_event: WindowEvent::Resized(width, height),
+            ..
+        } => {
+            state.input.screen_rect = Some(Rect::from_min_size(
+                Pos2::new(0f32, 0f32),
+                egui::vec2(width as f32, height as f32) / state.input.pixels_per_point.unwrap(),
+            ))
         }
 
         //MouseButonLeft pressed is the only one needed by egui
-        MouseButtonDown {mouse_btn, .. } => {
-            state.input.events.push(egui::Event::PointerButton {
-                pos: state.pointer_pos,
-                button: match mouse_btn {
-                    MouseButton::Left => egui::PointerButton::Primary,
-                    MouseButton::Right => egui::PointerButton::Secondary,
-                    MouseButton::Middle => egui::PointerButton::Middle,
-                    _ => unreachable!(),
-                },
-                pressed: true,
-                modifiers: state.modifiers,
-            })
-        }
+        MouseButtonDown { mouse_btn, .. } => state.input.events.push(egui::Event::PointerButton {
+            pos: state.pointer_pos,
+            button: match mouse_btn {
+                MouseButton::Left => egui::PointerButton::Primary,
+                MouseButton::Right => egui::PointerButton::Secondary,
+                MouseButton::Middle => egui::PointerButton::Middle,
+                _ => unreachable!(),
+            },
+            pressed: true,
+            modifiers: state.modifiers,
+        }),
 
         //MouseButonLeft pressed is the only one needed by egui
-        MouseButtonUp {mouse_btn, .. } => {
-            state.input.events.push(egui::Event::PointerButton {
-                pos: state.pointer_pos,
-                button: match mouse_btn {
-                    MouseButton::Left => egui::PointerButton::Primary,
-                    MouseButton::Right => egui::PointerButton::Secondary,
-                    MouseButton::Middle => egui::PointerButton::Middle,
-                    _ => unreachable!(),
-                },
-                pressed: false,
-                modifiers: state.modifiers,
-            })
-        }
+        MouseButtonUp { mouse_btn, .. } => state.input.events.push(egui::Event::PointerButton {
+            pos: state.pointer_pos,
+            button: match mouse_btn {
+                MouseButton::Left => egui::PointerButton::Primary,
+                MouseButton::Right => egui::PointerButton::Secondary,
+                MouseButton::Middle => egui::PointerButton::Middle,
+                _ => unreachable!(),
+            },
+            pressed: false,
+            modifiers: state.modifiers,
+        }),
 
-        MouseMotion {x, y, .. } => {
+        MouseMotion { x, y, .. } => {
             state.pointer_pos = pos2(
                 x as f32 / state.input.pixels_per_point.unwrap(),
                 y as f32 / state.input.pixels_per_point.unwrap(),
             );
-            state.input.events.push(egui::Event::PointerMoved(state.pointer_pos))
+            state
+                .input
+                .events
+                .push(egui::Event::PointerMoved(state.pointer_pos))
         }
-        
-        KeyUp {keycode, keymod, .. } => {
+
+        KeyUp {
+            keycode, keymod, ..
+        } => {
             if let Some(key) = translate_virtual_key_code(keycode.unwrap()) {
                 state.modifiers = Modifiers {
-                    alt: (keymod & Mod::LALTMOD == Mod::LALTMOD) || (keymod & Mod::RALTMOD == Mod::RALTMOD),
-                    ctrl:  (keymod & Mod::LCTRLMOD == Mod::LCTRLMOD) || (keymod & Mod::RCTRLMOD == Mod::RCTRLMOD),
-                    shift:  (keymod & Mod::LSHIFTMOD == Mod::LSHIFTMOD) || (keymod & Mod::RSHIFTMOD == Mod::RSHIFTMOD),
+                    alt: (keymod & Mod::LALTMOD == Mod::LALTMOD)
+                        || (keymod & Mod::RALTMOD == Mod::RALTMOD),
+                    ctrl: (keymod & Mod::LCTRLMOD == Mod::LCTRLMOD)
+                        || (keymod & Mod::RCTRLMOD == Mod::RCTRLMOD),
+                    shift: (keymod & Mod::LSHIFTMOD == Mod::LSHIFTMOD)
+                        || (keymod & Mod::RSHIFTMOD == Mod::RSHIFTMOD),
                     mac_cmd: keymod & Mod::LGUIMOD == Mod::LGUIMOD,
 
                     //TOD: Test on both windows and mac
-                    command:  (keymod & Mod::LCTRLMOD == Mod::LCTRLMOD) || (keymod & Mod::LGUIMOD == Mod::LGUIMOD)
+                    command: (keymod & Mod::LCTRLMOD == Mod::LCTRLMOD)
+                        || (keymod & Mod::LGUIMOD == Mod::LGUIMOD),
                 };
 
                 if state.modifiers.command && key == Key::C {
                     println!("copy event");
                     state.input.events.push(Event::Copy)
-                }
-                else if state.modifiers.command && key == Key::X {
+                } else if state.modifiers.command && key == Key::X {
                     println!("cut event");
                     state.input.events.push(Event::Cut)
-                }
-                else if state.modifiers.command && key == Key::V {
+                } else if state.modifiers.command && key == Key::V {
                     println!("paste");
                     if let Some(clipboard) = state.clipboard.as_mut() {
                         match clipboard.get_contents() {
@@ -113,38 +129,43 @@ pub fn input_to_egui(
                             }
                         }
                     }
-                }
-                else {
+                } else {
                     state.input.events.push(Event::Key {
                         key,
                         pressed: false,
-                        modifiers: state.modifiers
+                        modifiers: state.modifiers,
                     });
                 }
             }
         }
 
-        KeyDown {keycode, keymod, .. } => {
+        KeyDown {
+            keycode, keymod, ..
+        } => {
             if let Some(key) = translate_virtual_key_code(keycode.unwrap()) {
                 state.modifiers = Modifiers {
-                    alt: (keymod & Mod::LALTMOD == Mod::LALTMOD) || (keymod & Mod::RALTMOD == Mod::RALTMOD),
-                    ctrl:  (keymod & Mod::LCTRLMOD == Mod::LCTRLMOD) || (keymod & Mod::RCTRLMOD == Mod::RCTRLMOD),
-                    shift:  (keymod & Mod::LSHIFTMOD == Mod::LSHIFTMOD) || (keymod & Mod::RSHIFTMOD == Mod::RSHIFTMOD),
+                    alt: (keymod & Mod::LALTMOD == Mod::LALTMOD)
+                        || (keymod & Mod::RALTMOD == Mod::RALTMOD),
+                    ctrl: (keymod & Mod::LCTRLMOD == Mod::LCTRLMOD)
+                        || (keymod & Mod::RCTRLMOD == Mod::RCTRLMOD),
+                    shift: (keymod & Mod::LSHIFTMOD == Mod::LSHIFTMOD)
+                        || (keymod & Mod::RSHIFTMOD == Mod::RSHIFTMOD),
                     mac_cmd: keymod & Mod::LGUIMOD == Mod::LGUIMOD,
 
                     //TOD: Test on both windows and mac
-                    command:  (keymod & Mod::LCTRLMOD == Mod::LCTRLMOD) || (keymod & Mod::LGUIMOD == Mod::LGUIMOD)
+                    command: (keymod & Mod::LCTRLMOD == Mod::LCTRLMOD)
+                        || (keymod & Mod::LGUIMOD == Mod::LGUIMOD),
                 };
 
                 state.input.events.push(Event::Key {
                     key,
                     pressed: true,
-                    modifiers: state.modifiers
+                    modifiers: state.modifiers,
                 });
             }
         }
 
-        TextInput {text, .. } => {
+        TextInput { text, .. } => {
             state.input.events.push(Event::Text(text));
         }
 
@@ -172,14 +193,14 @@ pub fn translate_virtual_key_code(key: sdl2::keyboard::Keycode) -> Option<egui::
         Backspace => Key::Backspace,
         Space => Key::Space,
         Return => Key::Enter,
-        
+
         Insert => Key::Insert,
         Home => Key::Home,
         Delete => Key::Delete,
         End => Key::End,
         PageDown => Key::PageDown,
         PageUp => Key::PageUp,
-        
+
         Kp0 | Num0 => Key::Num0,
         Kp1 | Num1 => Key::Num1,
         Kp2 | Num2 => Key::Num2,
@@ -190,7 +211,7 @@ pub fn translate_virtual_key_code(key: sdl2::keyboard::Keycode) -> Option<egui::
         Kp7 | Num7 => Key::Num7,
         Kp8 | Num8 => Key::Num8,
         Kp9 | Num9 => Key::Num9,
-        
+
         A => Key::A,
         B => Key::B,
         C => Key::C,
@@ -224,7 +245,7 @@ pub fn translate_virtual_key_code(key: sdl2::keyboard::Keycode) -> Option<egui::
     })
 }
 
-pub fn translate_cursor(cursor_icon: egui::CursorIcon) -> sdl2::mouse::SystemCursor{
+pub fn translate_cursor(cursor_icon: egui::CursorIcon) -> sdl2::mouse::SystemCursor {
     match cursor_icon {
         CursorIcon::Default => SystemCursor::Arrow,
         CursorIcon::PointingHand => SystemCursor::Hand,
@@ -236,7 +257,7 @@ pub fn translate_cursor(cursor_icon: egui::CursorIcon) -> sdl2::mouse::SystemCur
 
         //There doesn't seem to be a suitable SDL equivalent...
         CursorIcon::Grab => SystemCursor::Hand,
-        CursorIcon::Grabbing => SystemCursor::Hand
+        CursorIcon::Grabbing => SystemCursor::Hand,
     }
 }
 
