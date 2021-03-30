@@ -1,5 +1,9 @@
 # Change log
 
+# v0.10.1
+* Clipboard is now an optional feature that is enabled by default. Thanks [Katyo](https://github.com/katyo) 
+* Fix for vertex array not being managed correctly. Thanks [FrankvdStam](https://github.com/FrankvdStam) 
+
 # v0.10.0
 * Fixed SRGB to linear color conversion.
 * Fixed shader error on Mac

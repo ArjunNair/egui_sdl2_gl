@@ -47,7 +47,7 @@ fn main() {
 
     let mut event_pump = sdl_context.event_pump().unwrap();
     let native_pixels_per_point = 96f32 / video_subsystem.display_dpi(0).unwrap().0;
-    
+
     let (width, height) = window.size();
 
     let mut egui_input_state = egui_backend::EguiInputState::new(egui::RawInput {
@@ -155,7 +155,12 @@ fn main() {
         //Use this only if egui is being used for all drawing and you aren't mixing your own Open GL
         //drawing calls with it.
         //Since we are custom drawing an OpenGL Triangle we don't need egui to clear the background.
-        painter.paint_jobs(None, paint_jobs, &egui_ctx.texture(), native_pixels_per_point);
+        painter.paint_jobs(
+            None,
+            paint_jobs,
+            &egui_ctx.texture(),
+            native_pixels_per_point,
+        );
 
         window.gl_swap_window();
 
