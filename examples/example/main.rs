@@ -86,6 +86,8 @@ fn main() {
     let triangle = triangle::Triangle::new();
     let mut quit = false;
 
+    let mut ime_window_rect: sdl2::rect::Rect = sdl2::rect::Rect::new(0, 0, 100, 50); 
+
     'running: loop {
         egui_input_state.input.time = Some(start_time.elapsed().as_secs_f64());
         egui_ctx.begin_frame(egui_input_state.input.take());
@@ -143,7 +145,22 @@ fn main() {
         });
 
         let (egui_output, paint_cmds) = egui_ctx.end_frame();
+        let egui_wants_keyboard = egui_ctx.wants_keyboard_input();
+        
+        if egui_wants_keyboard {
+            video_subsystem.text_input().start();
+        }
+        else {
+            video_subsystem.text_input().stop();
+        }
 
+        if video_subsystem.text_input().is_active() {
+            if let Some(cursor_pos) = egui_output.text_cursor {
+                ime_window_rect.x = (cursor_pos.x / native_pixels_per_point) as i32;
+                ime_window_rect.y = (cursor_pos.y / native_pixels_per_point) as i32;
+                video_subsystem.text_input().set_rect(ime_window_rect);
+            }    
+        }
         //Handle cut, copy text from egui
         if !egui_output.copied_text.is_empty() {
             egui_backend::copy_to_clipboard(&mut egui_input_state, egui_output.copied_text);

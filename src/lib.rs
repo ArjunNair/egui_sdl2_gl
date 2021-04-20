@@ -11,7 +11,7 @@ use {
     sdl2::{event::WindowEvent, mouse::MouseButton, mouse::SystemCursor, keyboard::{Keycode, Mod} }
 };
 
-use clipboard::ClipboardContext; // TODO: remove
+use clipboard::ClipboardContext; 
 
 pub struct EguiInputState {
     pub pointer_pos: Pos2,
@@ -233,10 +233,13 @@ pub fn translate_cursor(cursor_icon: egui::CursorIcon) -> sdl2::mouse::SystemCur
         CursorIcon::ResizeNwSe => SystemCursor::SizeNWSE,
         CursorIcon::ResizeVertical => SystemCursor::SizeNS,
         CursorIcon::Text => SystemCursor::IBeam,
-
+        CursorIcon::Wait => SystemCursor::Wait,
+        CursorIcon::Crosshair => SystemCursor::Crosshair,
+        CursorIcon::Move => SystemCursor::SizeAll,
         //There doesn't seem to be a suitable SDL equivalent...
         CursorIcon::Grab => SystemCursor::Hand,
-        CursorIcon::Grabbing => SystemCursor::Hand
+        CursorIcon::Grabbing => SystemCursor::Hand,
+        _ => SystemCursor::Arrow,
     }
 }
 

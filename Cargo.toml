@@ -12,8 +12,9 @@ categories = ["gui", "graphics"]
 keywords = ["sdl2", "opengl", "egui", "gui", "gamedev"]
 include = [ "**/*.rs", "Cargo.toml"]
 
+
 [dependencies]
 sdl2 = "0.34.3"
 gl = "0.14.0"
 clipboard = "0.5"
-egui = "0.10.0"
+egui = "0.11.0"

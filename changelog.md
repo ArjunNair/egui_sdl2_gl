@@ -1,5 +1,9 @@
 # Change log
 
+#v0.11.0
+* Updated to egui v0.11.0
+* Implemented IME input method. [Issue 8](https://github.com/ArjunNair/egui_sdl2_gl/issues/8)
+
 # v0.10.0
 * Fixed SRGB to linear color conversion.
 * Fixed shader error on Mac
