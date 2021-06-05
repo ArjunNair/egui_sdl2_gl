@@ -2,9 +2,8 @@
 // based on the example from:
 // https://github.com/brendanzab/gl-rs/blob/master/gl/examples/triangle.rs
 
-extern crate gl;
-
-use gl::types::*;
+use egui_sdl2_gl::gl;
+use egui_sdl2_gl::gl::types::*;
 use std::ffi::CString;
 use std::mem;
 use std::ptr;

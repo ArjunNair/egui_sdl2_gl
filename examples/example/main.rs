@@ -1,14 +1,12 @@
-extern crate gl;
-extern crate sdl2;
-
-use sdl2::event::Event;
-use sdl2::video::GLProfile;
-use std::time::Instant;
-
-use egui::{vec2, Color32, Image, Pos2, Rect};
-
 //Alias the backend to something less mouthful
 use egui_sdl2_gl as egui_backend;
+
+use egui_backend::{egui, gl, sdl2};
+use egui_backend::sdl2::event::Event;
+use egui_backend::sdl2::video::GLProfile;
+use std::time::Instant;
+
+use egui_backend::egui::{vec2, Color32, Image, Pos2, Rect};
 
 const SCREEN_WIDTH: u32 = 800;
 const SCREEN_HEIGHT: u32 = 600;
