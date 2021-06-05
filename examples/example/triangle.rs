@@ -138,11 +138,13 @@ impl Triangle {
 
             // Use shader program
             gl::UseProgram(self.program);
-            gl::BindFragDataLocation(self.program, 0, CString::new("out_color").unwrap().as_ptr());
+            let c_out_color = CString::new("out_color").unwrap();
+            gl::BindFragDataLocation(self.program, 0, c_out_color.as_ptr());
 
             // Specify the layout of the vertex data
+            let c_position = CString::new("position").unwrap();
             let pos_attr =
-                gl::GetAttribLocation(self.program, CString::new("position").unwrap().as_ptr());
+                gl::GetAttribLocation(self.program, c_position.as_ptr());
             gl::EnableVertexAttribArray(pos_attr as GLuint);
             gl::VertexAttribPointer(
                 pos_attr as GLuint,
