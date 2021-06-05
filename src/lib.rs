@@ -1,6 +1,11 @@
 #![warn(clippy::all)]
 #![allow(clippy::single_match)]
 
+// Re-export dependencies.
+pub use sdl2;
+pub use gl;
+pub use egui;
+
 mod painter;
 
 pub use painter::Painter;
