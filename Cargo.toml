@@ -10,11 +10,13 @@ readme = "README.md"
 repository = "https://github.com/ArjunNair/egui_sdl2_gl"
 categories = ["gui", "graphics"]
 keywords = ["sdl2", "opengl", "egui", "gui", "gamedev"]
-include = [ "**/*.rs", "Cargo.toml"]
+include = ["**/*.rs", "Cargo.toml"]
 
+[dependencies.sdl2]
+version = "0.34.5"
+features = ["bundled"]
 
 [dependencies]
-sdl2 = "0.34.3"
 gl = "0.14.0"
 clipboard = "0.5"
 egui = "0.11.0"
