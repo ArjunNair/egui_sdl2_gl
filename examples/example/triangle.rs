@@ -142,8 +142,7 @@ impl Triangle {
 
             // Specify the layout of the vertex data
             let c_position = CString::new("position").unwrap();
-            let pos_attr =
-                gl::GetAttribLocation(self.program, c_position.as_ptr());
+            let pos_attr = gl::GetAttribLocation(self.program, c_position.as_ptr());
             gl::EnableVertexAttribArray(pos_attr as GLuint);
             gl::VertexAttribPointer(
                 pos_attr as GLuint,

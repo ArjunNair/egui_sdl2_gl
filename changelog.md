@@ -1,5 +1,12 @@
 # Change log
 
+NOTE: The major version number of this library matches that of the egui major version that this library currently supports. The minor version number may be different though. 
+
+# v0.13.1
+* Updated to egui v0.13.1
+* Re-export dependencies Thanks [Guillaume Gomez](https://github.com/GuillaumeGomez/).
+* Switched to SDL2 as a bundled feature. Updated to 0.34.5.
+
 # v0.10.1
 * Clipboard is now an optional feature that is enabled by default. Thanks [Katyo](https://github.com/katyo) 
 * Fix for vertex array not being managed correctly. Thanks [FrankvdStam](https://github.com/FrankvdStam) 

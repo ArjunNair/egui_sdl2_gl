@@ -2,9 +2,9 @@
 #![allow(clippy::single_match)]
 
 // Re-export dependencies.
-pub use sdl2;
-pub use gl;
 pub use egui;
+pub use gl;
+pub use sdl2;
 
 mod painter;
 
@@ -259,10 +259,13 @@ pub fn translate_cursor(cursor_icon: egui::CursorIcon) -> sdl2::mouse::SystemCur
         CursorIcon::ResizeNwSe => SystemCursor::SizeNWSE,
         CursorIcon::ResizeVertical => SystemCursor::SizeNS,
         CursorIcon::Text => SystemCursor::IBeam,
-
+        CursorIcon::Crosshair => SystemCursor::Crosshair,
+        CursorIcon::NotAllowed | CursorIcon::NoDrop => SystemCursor::No,
+        CursorIcon::Wait => SystemCursor::Wait,
         //There doesn't seem to be a suitable SDL equivalent...
-        CursorIcon::Grab => SystemCursor::Hand,
-        CursorIcon::Grabbing => SystemCursor::Hand,
+        CursorIcon::Grab | CursorIcon::Grabbing => SystemCursor::Hand,
+
+        _ => SystemCursor::Arrow,
     }
 }
 

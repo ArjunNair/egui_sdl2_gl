@@ -1,6 +1,6 @@
 [package]
 name = "egui_sdl2_gl"
-version = "0.10.1"
+version = "0.10.2"
 authors = ["Arjun Nair <arjunair@gmail.com>"]
 edition = "2018"
 description = "Backend for Egui to use with sdl2-rs and open gl"
@@ -10,12 +10,15 @@ readme = "README.md"
 repository = "https://github.com/ArjunNair/egui_sdl2_gl"
 categories = ["gui", "graphics"]
 keywords = ["sdl2", "opengl", "egui", "gui", "gamedev"]
-include = [ "**/*.rs", "Cargo.toml"]
+include = ["**/*.rs", "Cargo.toml"]
+
+[dependencies.sdl2]
+version = "0.34.5"
+features = ["bundled"]
 
 [dependencies]
-sdl2 = "0.34.3"
 gl = "0.14.0"
-egui = "0.10.0"
+egui = "0.13.1"
 
 [dependencies.clipboard]
 package = "cli-clipboard"

@@ -1,9 +1,9 @@
 //Alias the backend to something less mouthful
 use egui_sdl2_gl as egui_backend;
 
-use egui_backend::{egui, gl, sdl2};
 use egui_backend::sdl2::event::Event;
 use egui_backend::sdl2::video::GLProfile;
+use egui_backend::{egui, gl, sdl2};
 use std::time::Instant;
 
 use egui_backend::egui::{vec2, Color32, Image, Pos2, Rect};
@@ -133,7 +133,8 @@ fn main() {
             ui.label(" ");
             ui.text_edit_multiline(&mut test_str);
             ui.label(" ");
-            ui.add(egui::Slider::f32(&mut amplitude, 0.0..=50.0).text("Amplitude"));
+            
+            ui.add(egui::Slider::new(&mut amplitude, 0.0..=50.0).text("Amplitude"));
             ui.label(" ");
             if ui.button("Quit").clicked() {
                 quit = true;
