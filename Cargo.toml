@@ -1,6 +1,6 @@
 [package]
 name = "egui_sdl2_gl"
-version = "0.13.1"
+version = "0.14.0"
 authors = ["Arjun Nair <arjunair@gmail.com>"]
 edition = "2018"
 description = "Backend for Egui to use with sdl2-rs and open gl"
@@ -18,7 +18,7 @@ features = ["bundled"]
 
 [dependencies]
 gl = "0.14.0"
-egui = "0.13.1"
+egui = "0.14.2"
 
 [dependencies.clipboard]
 package = "cli-clipboard"

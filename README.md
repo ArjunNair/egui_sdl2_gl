@@ -8,10 +8,9 @@ I've included an example in the examples folder to illustrate how the three can 
 cargo build --examples
 cargo run --example example
 ```
+Starting with v13.1 SDL2 is 'bundled' as a cargo requirement and so SDL2 needn't be setup separately. If, however, you wish to be in control of the SDL2 setup, you can remove the bundled feature from the cargo.toml and set up the SDL2 framework separately, as described in the SDL2 repo above.
 
-You **must** set up the SDL2 framework - as described in the SDL2 repo above - for compiling and running of not just the example, but any SDL2 based application. The application won't run without the SDL2 library obviously.
-
-Note that using OpenGL involves wrapping **any**  Open GL call in an *unsafe* block. Have a look at the src/painter.rs file to see what I mean. This of course means that all bets are off when dealing with code inside the unsafe blocks, but that's the price to pay when dealing with raw Open GL. 
+Note that using OpenGL involves wrapping **any**  Open GL call in an *unsafe* block. Have a look at the src/painter.rs file to see what I mean. This of course means that all bets are off when dealing with code inside the unsafe blocks, but that's the price to pay when dealing with raw OpenGL. 
 
 Why would anyone want to use this then, you wonder? Well I would say the familiarity of using SDL2, the elegance of Egui and the power of OpenGL makes for a good combination in making games, emulators, graphics tools and such.
 

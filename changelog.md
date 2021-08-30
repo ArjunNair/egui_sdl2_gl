@@ -2,6 +2,10 @@
 
 NOTE: The major version number of this library matches that of the egui major version that this library currently supports. The minor version number may be different though. 
 
+# v0.14.0
+* Updated to egui v0.14.2
+* Updated README to reflect SDL2 bundle feature introduced in v0.13.1
+
 # v0.13.1
 * Updated to egui v0.13.1
 * Re-export dependencies Thanks [Guillaume Gomez](https://github.com/GuillaumeGomez/).
