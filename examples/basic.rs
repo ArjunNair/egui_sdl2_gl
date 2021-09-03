@@ -47,7 +47,7 @@ fn main() {
 
     // Init egui stuff
     let (mut painter, mut egui_input_state) =
-        egui_backend::with_sdl2(&window, DpiScaling::Custom(120.0));
+        egui_backend::with_sdl2(&window, DpiScaling::Custom(1.4));
     let mut egui_ctx = egui::CtxRef::default();
     let mut event_pump = sdl_context.event_pump().unwrap();
 
@@ -91,13 +91,13 @@ fn main() {
         // Fuse cursor
         egui_backend::translate_cursor(&mut egui_input_state.fused_cursor, egui_output.cursor_icon);
 
-        // Update window when the size of resized window is very small (to avoid egui::CentralPanel distortions).
-        if egui_ctx.used_size() != painter.screen_rect.size() {
-            println!("resized.");
-            let _size = egui_ctx.used_size();
-            let (w, h) = (_size.x as u32, _size.y as u32);
-            window.set_size(w, h).unwrap();
-        }
+        // For default dpi scaling only, Update window when the size of resized window is very small (to avoid egui::CentralPanel distortions).
+        // if egui_ctx.used_size() != painter.screen_rect.size() {
+        //     println!("resized.");
+        //     let _size = egui_ctx.used_size();
+        //     let (w, h) = (_size.x as u32, _size.y as u32);
+        //     window.set_size(w, h).unwrap();
+        // }
 
         // Handle cut, copy text from egui
         if !egui_output.copied_text.is_empty() {

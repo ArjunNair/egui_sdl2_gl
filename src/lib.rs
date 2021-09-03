@@ -42,12 +42,12 @@ impl FusedCursor {
     }
 }
 
-pub const DEFAULT_SCALE: f32 = 96.0;
+pub const DEFAULT_SCALE: f32 = 1.0;
 
 pub enum DpiScaling {
-    /// Default is 96.0
+    /// Default is handled by sdl2, probably 1.0
     Default,
-    /// Custome DPI scaling
+    /// Custome DPI scaling, e.g: 0.8, 1.5, 2.0 and so fort.
     Custom(f32),
 }
 
@@ -61,8 +61,10 @@ pub struct EguiInputState {
 
 pub fn with_sdl2(window: &sdl2::video::Window, scale: DpiScaling) -> (Painter, EguiInputState) {
     let scale = match scale {
-        DpiScaling::Default => DEFAULT_SCALE,
-        DpiScaling::Custom(custom) => custom,
+        DpiScaling::Default => 96.0 / window.subsystem().display_dpi(0).unwrap().0,
+        DpiScaling::Custom(custom) => {
+            (96.0 / window.subsystem().display_dpi(0).unwrap().0) * custom
+        }
     };
     let painter = painter::Painter::new(window, scale);
     EguiInputState::new(painter)
@@ -98,9 +100,6 @@ pub fn input_to_egui(
         // handle when window Resized and SizeChanged.
         Window { win_event, .. } => match win_event {
             WindowEvent::Resized(_, _) | sdl2::event::WindowEvent::SizeChanged(_, _) => {
-                if let Ok(display_dpi) = window.subsystem().display_dpi(0) {
-                    painter.display_dpi = display_dpi.0
-                }
                 painter.update_screen_rect(window.drawable_size());
                 state.input.screen_rect = Some(painter.screen_rect);
             }

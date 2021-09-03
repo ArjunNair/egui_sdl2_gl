@@ -113,8 +113,6 @@ pub struct Painter {
     pub gl_sync_fence: GLsync,
     egui_texture_version: Option<u64>,
     user_textures: Vec<UserTexture>,
-    pub display_dpi: f32,
-    pub dpi_scale: f32,
     pub pixels_per_point: f32,
     pub canvas_size: (u32, u32),
     pub screen_rect: Rect,
@@ -213,9 +211,8 @@ impl Painter {
             gl::GenBuffers(1, &mut tc_buffer);
             gl::GenBuffers(1, &mut color_buffer);
 
-            let display_dpi = window.subsystem().display_dpi(0).unwrap().0;
             let (width, height) = window.size();
-            let pixels_per_point = scale / display_dpi;
+            let pixels_per_point = scale;
             let rect = vec2(width as f32, height as f32) / pixels_per_point;
             let screen_rect = Rect::from_min_size(Pos2::new(0f32, 0f32), rect);
 
@@ -232,8 +229,6 @@ impl Painter {
                 color_buffer,
                 egui_texture,
                 gl_sync_fence: gl::FenceSync(gl::SYNC_GPU_COMMANDS_COMPLETE, 0),
-                display_dpi,
-                dpi_scale: scale,
                 pixels_per_point,
                 egui_texture_version: None,
                 user_textures: Default::default(),
@@ -243,15 +238,10 @@ impl Painter {
         }
     }
 
-    pub fn udate_pixels_per_point(&mut self) {
-        self.pixels_per_point = self.dpi_scale / self.display_dpi;
-    }
-
     pub fn update_screen_rect(&mut self, size: (u32, u32)) {
         self.canvas_size = size;
-        let pixels_per_point = self.dpi_scale / self.display_dpi;
         let (x, y) = size;
-        let rect = vec2(x as f32, y as f32) / pixels_per_point;
+        let rect = vec2(x as f32, y as f32) / self.pixels_per_point;
         self.screen_rect = Rect::from_min_size(Default::default(), rect);
     }
 
