@@ -488,13 +488,7 @@ impl Painter {
 
                 self.paint_mesh(&mesh);
             }
-            // gl::Enable(gl::MULTISAMPLE);
-            // let mut multi: GLint = 0;
-            // let mut num: GLint = 8;
-            // gl::GetIntegerv(gl::SAMPLE_BUFFERS, &mut multi);
-            // gl::GetIntegerv(gl::SAMPLES, &mut num);
-            // println!("MULTI:{} NUM:{}", multi, num);
-
+			
             gl::Disable(gl::SCISSOR_TEST);
             gl::Disable(gl::FRAMEBUFFER_SRGB);
         }

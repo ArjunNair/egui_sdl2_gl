@@ -136,7 +136,6 @@ impl Triangle {
 
             // Use shader program
             gl::UseProgram(self.program);
-            gl::ActiveTexture(gl::TEXTURE0);
             let c_out_color = CString::new("out_color").unwrap();
             gl::BindFragDataLocation(self.program, 0, c_out_color.as_ptr());
 
