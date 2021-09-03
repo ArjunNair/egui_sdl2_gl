@@ -186,7 +186,7 @@ pub fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
 }
 
 impl Painter {
-    pub fn new(window: &sdl2::video::Window) -> Painter {
+    pub fn new(window: &sdl2::video::Window, scale: f32) -> Painter {
         unsafe {
             let mut egui_texture = 0;
             gl::load_with(|name| window.subsystem().gl_get_proc_address(name) as *const _);
@@ -215,8 +215,7 @@ impl Painter {
 
             let display_dpi = window.subsystem().display_dpi(0).unwrap().0;
             let (width, height) = window.size();
-            let dpi_scale = 96.0;
-            let pixels_per_point = dpi_scale / display_dpi;
+            let pixels_per_point = scale / display_dpi;
             let rect = vec2(width as f32, height as f32) / pixels_per_point;
             let screen_rect = Rect::from_min_size(Pos2::new(0f32, 0f32), rect);
 
@@ -234,7 +233,7 @@ impl Painter {
                 egui_texture,
                 gl_sync_fence: gl::FenceSync(gl::SYNC_GPU_COMMANDS_COMPLETE, 0),
                 display_dpi,
-                dpi_scale,
+                dpi_scale: scale,
                 pixels_per_point,
                 egui_texture_version: None,
                 user_textures: Default::default(),
@@ -242,6 +241,10 @@ impl Painter {
                 screen_rect,
             }
         }
+    }
+
+    pub fn udate_pixels_per_point(&mut self) {
+        self.pixels_per_point = self.dpi_scale / self.display_dpi;
     }
 
     pub fn update_screen_rect(&mut self, size: (u32, u32)) {
@@ -488,7 +491,7 @@ impl Painter {
 
                 self.paint_mesh(&mesh);
             }
-			
+
             gl::Disable(gl::SCISSOR_TEST);
             gl::Disable(gl::FRAMEBUFFER_SRGB);
         }

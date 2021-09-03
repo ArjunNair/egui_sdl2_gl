@@ -1,18 +1,17 @@
 //Alias the backend to something less mouthful
 use egui_sdl2_gl as egui_backend;
-
-use egui_backend::sdl2::event::Event;
+use egui_backend::{DpiScaling, sdl2::event::Event};
 use egui_backend::sdl2::video::GLProfile;
 use egui_backend::{egui, gl, sdl2};
 use sdl2::video::SwapInterval;
-
 use egui_backend::egui::{vec2, Color32, Image};
+mod triangle;
 
 const SCREEN_WIDTH: u32 = 800;
 const SCREEN_HEIGHT: u32 = 600;
 const PIC_WIDTH: i32 = 320;
 const PIC_HEIGHT: i32 = 192;
-mod triangle;
+
 
 fn main() {
     let sdl_context = sdl2::init().unwrap();
@@ -20,9 +19,9 @@ fn main() {
     let gl_attr = video_subsystem.gl_attr();
     gl_attr.set_context_profile(GLProfile::Core);
 
-    //Let OpenGL know we are dealing with SRGB colors so that it
-    //can do the blending correctly. Not setting the framebuffer
-    //leads to darkened, oversaturated colors.
+    // Let OpenGL know we are dealing with SRGB colors so that it
+    // can do the blending correctly. Not setting the framebuffer
+    // leads to darkened, oversaturated colors.
     gl_attr.set_framebuffer_srgb_compatible(true);
 
     // OpenGL 3.2 is the minimum that we will support.
@@ -47,7 +46,7 @@ fn main() {
     window.subsystem().gl_set_swap_interval(SwapInterval::VSync).unwrap();
 
     // Init egui stuff
-    let (mut painter, mut egui_input_state) = egui_backend::with_sdl2(&window);
+    let (mut painter, mut egui_input_state) = egui_backend::with_sdl2(&window, DpiScaling::Default);
     let mut egui_ctx = egui::CtxRef::default();
     let mut event_pump = sdl_context.event_pump().unwrap();
     let mut srgba: Vec<Color32> = Vec::new();
@@ -113,8 +112,8 @@ fn main() {
         painter.update_user_texture_data(chip8_tex_id, &srgba);
 
         egui::Window::new("Egui with SDL2 and GL").show(&egui_ctx, |ui| {
-            //Image just needs a texture id reference, so we just pass it the texture id that was returned to us
-            //when we previously initialized the texture.
+            // Image just needs a texture id reference, so we just pass it the texture id that was returned to us
+            // when we previously initialized the texture.
             ui.add(Image::new(chip8_tex_id, vec2(PIC_WIDTH as f32, PIC_HEIGHT as f32)));
             ui.separator();
             ui.label("A simple sine wave plotted onto a GL texture then blitted to an egui managed Image.");
@@ -129,12 +128,12 @@ fn main() {
         });
 
         let (egui_output, paint_cmds) = egui_ctx.end_frame();
-        // fuse cursor
+        // Fuse cursor
         egui_backend::translate_cursor(&mut egui_input_state.fused_cursor, egui_output.cursor_icon);
 
         //Handle cut, copy text from egui
         if !egui_output.copied_text.is_empty() {
-            // fuse clipboard
+            // Fuse clipboard
             egui_backend::copy_to_clipboard(&mut egui_input_state, egui_output.copied_text);
         }
 
@@ -157,7 +156,7 @@ fn main() {
             match event {
                 Event::Quit { .. } => break 'running,
                 _ => {
-                    // fuse event
+                    // Fuse event
                     egui_backend::input_to_egui(&window, event,&mut painter, &mut egui_input_state);
                 }
             }

@@ -42,6 +42,15 @@ impl FusedCursor {
     }
 }
 
+pub const DEFAULT_SCALE: f32 = 96.0;
+
+pub enum DpiScaling {
+    /// Default is 96.0
+    Default,
+    /// Custome DPI scaling
+    Custom(f32),
+}
+
 pub struct EguiInputState {
     pub fused_cursor: FusedCursor,
     pub pointer_pos: Pos2,
@@ -50,8 +59,12 @@ pub struct EguiInputState {
     pub modifiers: Modifiers,
 }
 
-pub fn with_sdl2(window: &sdl2::video::Window) -> (Painter, EguiInputState) {
-    let painter = painter::Painter::new(window);
+pub fn with_sdl2(window: &sdl2::video::Window, scale: DpiScaling) -> (Painter, EguiInputState) {
+    let scale = match scale {
+        DpiScaling::Default => DEFAULT_SCALE,
+        DpiScaling::Custom(custom) => custom,
+    };
+    let painter = painter::Painter::new(window, scale);
     EguiInputState::new(painter)
 }
 
@@ -120,10 +133,10 @@ pub fn input_to_egui(
                 MouseButton::Right => Some(egui::PointerButton::Secondary),
                 _ => None,
             };
-            if let Some(pressed) = mouse_btn {
+            if let Some(released) = mouse_btn {
                 state.input.events.push(egui::Event::PointerButton {
                     pos: state.pointer_pos,
-                    button: pressed,
+                    button: released,
                     pressed: false,
                     modifiers: state.modifiers,
                 })

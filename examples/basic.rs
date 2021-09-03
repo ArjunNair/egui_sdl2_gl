@@ -1,8 +1,8 @@
 use egui::Checkbox;
-//Alias the backend to something less mouthful
-use egui_backend::sdl2::event::Event;
 use egui_backend::sdl2::video::GLProfile;
 use egui_backend::{egui, gl, sdl2};
+use egui_backend::{sdl2::event::Event, DpiScaling};
+// Alias the backend to something less mouthful
 use egui_sdl2_gl as egui_backend;
 use sdl2::video::SwapInterval;
 
@@ -15,9 +15,9 @@ fn main() {
     let gl_attr = video_subsystem.gl_attr();
     gl_attr.set_context_profile(GLProfile::Core);
 
-    //Let OpenGL know we are dealing with SRGB colors so that it
-    //can do the blending correctly. Not setting the framebuffer
-    //leads to darkened, oversaturated colors.
+    // Let OpenGL know we are dealing with SRGB colors so that it
+    // can do the blending correctly. Not setting the framebuffer
+    // leads to darkened, oversaturated colors.
     gl_attr.set_framebuffer_srgb_compatible(true);
 
     // OpenGL 3.2 is the minimum that we will support.
@@ -46,15 +46,16 @@ fn main() {
         .unwrap();
 
     // Init egui stuff
-    let (mut painter, mut egui_input_state) = egui_backend::with_sdl2(&window);
+    let (mut painter, mut egui_input_state) =
+        egui_backend::with_sdl2(&window, DpiScaling::Custom(120.0));
     let mut egui_ctx = egui::CtxRef::default();
     let mut event_pump = sdl_context.event_pump().unwrap();
 
     let mut test_str: String =
         "A text box to write in. Cut, copy, paste commands are available.".to_owned();
-    let mut slider = 0.0;
-    let mut quit = false;
+
     let mut enable_vsync = false;
+    let mut quit = false;
 
     'running: loop {
         if enable_vsync {
@@ -72,20 +73,9 @@ fn main() {
         egui_input_state.input.time = Some(sdl_context.timer().unwrap().ticks().into());
         egui_ctx.begin_frame(egui_input_state.input.take());
 
-        // An example of how OpenGL can be used to draw custom stuff with egui
-        // overlaying it:
-        // First clear the background to something nice.
-        unsafe {
-            // Clear the screen to black
-            gl::ClearColor(0.3, 0.6, 0.3, 1.0);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-        }
-
         egui::CentralPanel::default().show(&egui_ctx, |ui| {
             ui.label(" ");
             ui.text_edit_multiline(&mut test_str);
-            ui.label(" ");
-            ui.add(egui::Slider::new(&mut slider, 0.0..=50.0).text("Amplitude"));
             ui.label(" ");
             ui.add(Checkbox::new(&mut enable_vsync, "Reduce CPU Usage?"));
             ui.separator();
@@ -95,7 +85,7 @@ fn main() {
         });
 
         let (egui_output, paint_cmds) = egui_ctx.end_frame();
-        // fuse cursor
+        // Fuse cursor
         egui_backend::translate_cursor(&mut egui_input_state.fused_cursor, egui_output.cursor_icon);
 
         // Update window when the size of resized window is very small (to avoid egui::CentralPanel distortions).
@@ -106,18 +96,23 @@ fn main() {
             window.set_size(w, h).unwrap();
         }
 
-        //Handle cut, copy text from egui
+        // Handle cut, copy text from egui
         if !egui_output.copied_text.is_empty() {
-            // fuse clipboard
+            // Fuse clipboard
             egui_backend::copy_to_clipboard(&mut egui_input_state, egui_output.copied_text);
         }
 
         let paint_jobs = egui_ctx.tessellate(paint_cmds);
 
-        // Note: passing a bg_color to paint_jobs will clear any previously drawn stuff.
-        // Use this only if egui is being used for all drawing and you aren't mixing your own Open GL
-        // drawing calls with it.
-        // Since we are custom drawing an OpenGL Triangle we don't need egui to clear the background.
+        // An example of how OpenGL can be used to draw custom stuff with egui
+        // overlaying it:
+        // First clear the background to something nice.
+        unsafe {
+            // Clear the screen to black
+            gl::ClearColor(0.3, 0.6, 0.3, 1.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+        }
+
         painter.paint_jobs(None, paint_jobs, &egui_ctx.texture());
 
         window.gl_swap_window();
@@ -127,7 +122,7 @@ fn main() {
             match event {
                 Event::Quit { .. } => break 'running,
                 _ => {
-                    // fuse event
+                    // Fuse event
                     egui_backend::input_to_egui(
                         &window,
                         event,
