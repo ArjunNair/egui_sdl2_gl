@@ -23,7 +23,7 @@ fn main() {
     // OpenGL 3.2 is the minimum that we will support.
     gl_attr.set_context_version(3, 2);
 
-    let mut window = video_subsystem
+    let window = video_subsystem
         .window(
             "Demo: Egui backend for SDL2 + GL",
             SCREEN_WIDTH,
@@ -47,7 +47,7 @@ fn main() {
 
     // Init egui stuff
     let (mut painter, mut egui_input_state) =
-        egui_backend::with_sdl2(&window, DpiScaling::Custom(1.4));
+        egui_backend::with_sdl2(&window, DpiScaling::Custom(1.0));
     let mut egui_ctx = egui::CtxRef::default();
     let mut event_pump = sdl_context.event_pump().unwrap();
 

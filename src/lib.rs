@@ -42,8 +42,6 @@ impl FusedCursor {
     }
 }
 
-pub const DEFAULT_SCALE: f32 = 1.0;
-
 pub enum DpiScaling {
     /// Default is handled by sdl2, probably 1.0
     Default,
