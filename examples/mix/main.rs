@@ -1,17 +1,18 @@
+use std::time::Instant;
+
 //Alias the backend to something less mouthful
-use egui_sdl2_gl as egui_backend;
-use egui_backend::{DpiScaling, sdl2::event::Event};
+use egui_backend::egui::{vec2, Color32, Image};
 use egui_backend::sdl2::video::GLProfile;
 use egui_backend::{egui, gl, sdl2};
+use egui_backend::{sdl2::event::Event, DpiScaling};
+use egui_sdl2_gl as egui_backend;
 use sdl2::video::SwapInterval;
-use egui_backend::egui::{vec2, Color32, Image};
 mod triangle;
 
 const SCREEN_WIDTH: u32 = 800;
 const SCREEN_HEIGHT: u32 = 600;
 const PIC_WIDTH: i32 = 320;
 const PIC_HEIGHT: i32 = 192;
-
 
 fn main() {
     let sdl_context = sdl2::init().unwrap();
@@ -33,7 +34,8 @@ fn main() {
             SCREEN_WIDTH,
             SCREEN_HEIGHT,
         )
-        .opengl().resizable()
+        .opengl()
+        .resizable()
         .build()
         .unwrap();
 
@@ -41,9 +43,12 @@ fn main() {
     let _ctx = window.gl_create_context().unwrap();
     debug_assert_eq!(gl_attr.context_profile(), GLProfile::Core);
     debug_assert_eq!(gl_attr.context_version(), (3, 2));
-    
+
     // Enable vsync
-    window.subsystem().gl_set_swap_interval(SwapInterval::VSync).unwrap();
+    window
+        .subsystem()
+        .gl_set_swap_interval(SwapInterval::VSync)
+        .unwrap();
 
     // Init egui stuff
     let (mut painter, mut egui_input_state) = egui_backend::with_sdl2(&window, DpiScaling::Default);
@@ -70,13 +75,13 @@ fn main() {
     let mut amplitude: f32 = 50f32;
     let mut test_str: String =
         "A text box to write in. Cut, copy, paste commands are available.".to_owned();
-
+    let start_time = Instant::now();
     // We will draw a crisp white triangle using OpenGL.
     let triangle = triangle::Triangle::new();
     let mut quit = false;
 
     'running: loop {
-        egui_input_state.input.time = Some(sdl_context.timer().unwrap().ticks().into());
+        egui_input_state.input.time =  Some(start_time.elapsed().as_secs_f64());
         egui_ctx.begin_frame(egui_input_state.input.take());
 
         // An example of how OpenGL can be used to draw custom stuff with egui
@@ -143,13 +148,7 @@ fn main() {
         // Use this only if egui is being used for all drawing and you aren't mixing your own Open GL
         // drawing calls with it.
         // Since we are custom drawing an OpenGL Triangle we don't need egui to clear the background.
-        painter.paint_jobs(
-            None,
-            paint_jobs,
-            &egui_ctx.texture(),
-        );
-
-        window.gl_swap_window();
+        painter.paint_jobs(None, paint_jobs, &egui_ctx.texture());
 
         // Using regular SDL2 event pipeline
         for event in event_pump.poll_iter() {
@@ -157,7 +156,12 @@ fn main() {
                 Event::Quit { .. } => break 'running,
                 _ => {
                     // Fuse event
-                    egui_backend::input_to_egui(&window, event,&mut painter, &mut egui_input_state);
+                    egui_backend::input_to_egui(
+                        &window,
+                        event,
+                        &mut painter,
+                        &mut egui_input_state,
+                    );
                 }
             }
         }

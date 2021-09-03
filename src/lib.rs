@@ -27,6 +27,7 @@ use clipboard::{
     ClipboardContext, // TODO: remove
     ClipboardProvider,
 };
+use sdl2::sys::SDL_SystemCursor;
 
 pub struct FusedCursor {
     pub cursor: Cursor,
@@ -224,7 +225,8 @@ pub fn input_to_egui(
             state.input.events.push(Event::Text(text));
         }
 
-        MouseWheel { x, y, .. } => {
+        MouseWheel {x, y, .. } => {
+            println!("x: {} y: {}", y, x);
             state.input.scroll_delta = vec2(x as f32, y as f32);
         }
 

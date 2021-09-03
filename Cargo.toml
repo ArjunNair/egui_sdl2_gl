@@ -17,8 +17,8 @@ version = "0.34.5"
 features = ["bundled"]
 
 [dependencies]
-gl = "0.14.0"
-egui = "0.14.2"
+gl = "0.14"
+egui = "0.14"
 
 [dependencies.clipboard]
 package = "cli-clipboard"
@@ -28,3 +28,6 @@ optional = true
 
 [features]
 default = ["clipboard"]
+
+[dev-dependencies]
+egui_demo_lib = "0.14"

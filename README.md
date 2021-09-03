@@ -7,6 +7,7 @@ I've included an example in the examples folder to illustrate how the three can 
 ```
 cargo build --examples
 cargo run --example mix
+cargo run --example demo_lib
 cargo run --example basic
 ```
 Starting with v13.1 SDL2 is 'bundled' as a cargo requirement and so SDL2 needn't be setup separately. If, however, you wish to be in control of the SDL2 setup, you can remove the bundled feature from the cargo.toml and set up the SDL2 framework separately, as described in the SDL2 repo above.
@@ -22,4 +23,4 @@ As far as the implementation goes, I've used Emil's original egui_glium and egui
 
 I'm not an expert in Egui, Open GL or Rust for that matter. Please do submit an issue ticket (or better, send a PR!) if you spot something something that's out of whack in so far as the backend implementation goes. Issues regarding SDL2, Egui or OpenGL should be directed towards their respective repository owners!
 
-Note: There is limited support for the output from Egui itself. For example: cut, copy and paste of text is supported but cursor change feedback isn't.
+Note: There is limited support for the output from Egui itself. For example: cut, copy/paste of text and cursor is supported but zoom on plot area (ctrl + mouse wheel) still incorrect.
