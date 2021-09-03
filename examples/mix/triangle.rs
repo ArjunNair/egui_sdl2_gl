@@ -28,8 +28,6 @@ void main() {
 static VERTEX_DATA: [GLfloat; 6] = [0.0, 0.5, 0.5, -0.5, -0.5, -0.5];
 
 pub struct Triangle {
-    pub vs: GLuint,
-    pub fs: GLuint,
     pub program: GLuint,
     pub vao: GLuint,
     pub vbo: GLuint,
@@ -38,6 +36,7 @@ pub struct Triangle {
 pub fn compile_shader(src: &str, ty: GLenum) -> GLuint {
     let shader;
     unsafe {
+        // Create GLSL shaders
         shader = gl::CreateShader(ty);
         // Attempt to compile the shader
         let c_str = CString::new(src.as_bytes()).unwrap();
@@ -75,6 +74,12 @@ pub fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
         gl::AttachShader(program, vs);
         gl::AttachShader(program, fs);
         gl::LinkProgram(program);
+
+        gl::DetachShader(program, fs);
+        gl::DetachShader(program, vs);
+        gl::DeleteShader(fs);
+        gl::DeleteShader(vs);
+
         // Get the link status
         let mut status = gl::FALSE as GLint;
         gl::GetProgramiv(program, gl::LINK_STATUS, &mut status);
@@ -112,15 +117,9 @@ impl Triangle {
             gl::GenVertexArrays(1, &mut vao);
             gl::GenBuffers(1, &mut vbo);
         }
-        Triangle {
-            // Create GLSL shaders
-            vs,
-            fs,
-            program,
-            vao,
-            vbo,
-        }
+        Triangle { program, vao, vbo }
     }
+
     pub fn draw(&self) {
         unsafe {
             gl::BindVertexArray(self.vao);
@@ -137,6 +136,7 @@ impl Triangle {
 
             // Use shader program
             gl::UseProgram(self.program);
+            gl::ActiveTexture(gl::TEXTURE0);
             let c_out_color = CString::new("out_color").unwrap();
             gl::BindFragDataLocation(self.program, 0, c_out_color.as_ptr());
 
@@ -163,8 +163,6 @@ impl Drop for Triangle {
     fn drop(&mut self) {
         unsafe {
             gl::DeleteProgram(self.program);
-            gl::DeleteShader(self.fs);
-            gl::DeleteShader(self.vs);
             gl::DeleteBuffers(1, &self.vbo);
             gl::DeleteVertexArrays(1, &self.vao);
         }

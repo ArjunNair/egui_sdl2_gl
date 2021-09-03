@@ -16,7 +16,7 @@ use {
         event::WindowEvent,
         keyboard::{Keycode, Mod},
         mouse::MouseButton,
-        mouse::SystemCursor,
+        mouse::{Cursor, SystemCursor},
     },
 };
 
@@ -28,70 +28,110 @@ use clipboard::{
     ClipboardProvider,
 };
 
+pub struct FusedCursor {
+    pub cursor: Cursor,
+    pub icon: SystemCursor,
+}
+
+impl FusedCursor {
+    pub fn new() -> Self {
+        Self {
+            cursor: Cursor::from_system(SystemCursor::Arrow).unwrap(),
+            icon: SystemCursor::Arrow,
+        }
+    }
+}
+
 pub struct EguiInputState {
+    pub fused_cursor: FusedCursor,
     pub pointer_pos: Pos2,
     pub clipboard: Option<ClipboardContext>,
     pub input: RawInput,
     pub modifiers: Modifiers,
 }
 
+pub fn with_sdl2(window: &sdl2::video::Window) -> (Painter, EguiInputState) {
+    let painter = painter::Painter::new(window);
+    EguiInputState::new(painter)
+}
+
 impl EguiInputState {
-    pub fn new(input: RawInput) -> Self {
-        EguiInputState {
+    pub fn new(painter: Painter) -> (Painter, EguiInputState) {
+        let _self = EguiInputState {
+            fused_cursor: FusedCursor::new(),
             pointer_pos: Pos2::new(0f32, 0f32),
             clipboard: init_clipboard(),
-            input,
+            input: egui::RawInput {
+                screen_rect: Some(painter.screen_rect),
+                pixels_per_point: Some(painter.pixels_per_point),
+                ..Default::default()
+            },
             modifiers: Modifiers::default(),
-        }
+        };
+        (painter, _self)
     }
 }
 
-pub fn input_to_egui(event: sdl2::event::Event, state: &mut EguiInputState) {
+pub fn input_to_egui(
+    window: &sdl2::video::Window,
+    event: sdl2::event::Event,
+    painter: &mut Painter,
+    state: &mut EguiInputState,
+) {
     use sdl2::event::Event::*;
 
+    let pixels_per_point = painter.pixels_per_point;
     match event {
-        //Only the window resize event is handled
-        Window {
-            win_event: WindowEvent::Resized(width, height),
-            ..
-        } => {
-            state.input.screen_rect = Some(Rect::from_min_size(
-                Pos2::new(0f32, 0f32),
-                egui::vec2(width as f32, height as f32) / state.input.pixels_per_point.unwrap(),
-            ))
+        // handle when window Resized and SizeChanged.
+        Window { win_event, .. } => match win_event {
+            WindowEvent::Resized(_, _) | sdl2::event::WindowEvent::SizeChanged(_, _) => {
+                if let Ok(display_dpi) = window.subsystem().display_dpi(0) {
+                    painter.display_dpi = display_dpi.0
+                }
+                painter.update_screen_rect(window.drawable_size());
+                state.input.screen_rect = Some(painter.screen_rect);
+            }
+            _ => (),
+        },
+
+        //MouseButonLeft pressed is the only one needed by egui
+        MouseButtonDown { mouse_btn, .. } => {
+            let mouse_btn = match mouse_btn {
+                MouseButton::Left => Some(egui::PointerButton::Primary),
+                MouseButton::Middle => Some(egui::PointerButton::Middle),
+                MouseButton::Right => Some(egui::PointerButton::Secondary),
+                _ => None,
+            };
+            if let Some(pressed) = mouse_btn {
+                state.input.events.push(egui::Event::PointerButton {
+                    pos: state.pointer_pos,
+                    button: pressed,
+                    pressed: true,
+                    modifiers: state.modifiers,
+                })
+            }
         }
 
         //MouseButonLeft pressed is the only one needed by egui
-        MouseButtonDown { mouse_btn, .. } => state.input.events.push(egui::Event::PointerButton {
-            pos: state.pointer_pos,
-            button: match mouse_btn {
-                MouseButton::Left => egui::PointerButton::Primary,
-                MouseButton::Right => egui::PointerButton::Secondary,
-                MouseButton::Middle => egui::PointerButton::Middle,
-                _ => unreachable!(),
-            },
-            pressed: true,
-            modifiers: state.modifiers,
-        }),
-
-        //MouseButonLeft pressed is the only one needed by egui
-        MouseButtonUp { mouse_btn, .. } => state.input.events.push(egui::Event::PointerButton {
-            pos: state.pointer_pos,
-            button: match mouse_btn {
-                MouseButton::Left => egui::PointerButton::Primary,
-                MouseButton::Right => egui::PointerButton::Secondary,
-                MouseButton::Middle => egui::PointerButton::Middle,
-                _ => unreachable!(),
-            },
-            pressed: false,
-            modifiers: state.modifiers,
-        }),
+        MouseButtonUp { mouse_btn, .. } => {
+            let mouse_btn = match mouse_btn {
+                MouseButton::Left => Some(egui::PointerButton::Primary),
+                MouseButton::Middle => Some(egui::PointerButton::Middle),
+                MouseButton::Right => Some(egui::PointerButton::Secondary),
+                _ => None,
+            };
+            if let Some(pressed) = mouse_btn {
+                state.input.events.push(egui::Event::PointerButton {
+                    pos: state.pointer_pos,
+                    button: pressed,
+                    pressed: false,
+                    modifiers: state.modifiers,
+                })
+            }
+        }
 
         MouseMotion { x, y, .. } => {
-            state.pointer_pos = pos2(
-                x as f32 / state.input.pixels_per_point.unwrap(),
-                y as f32 / state.input.pixels_per_point.unwrap(),
-            );
+            state.pointer_pos = pos2(x as f32 / pixels_per_point, y as f32 / pixels_per_point);
             state
                 .input
                 .events
@@ -250,8 +290,8 @@ pub fn translate_virtual_key_code(key: sdl2::keyboard::Keycode) -> Option<egui::
     })
 }
 
-pub fn translate_cursor(cursor_icon: egui::CursorIcon) -> sdl2::mouse::SystemCursor {
-    match cursor_icon {
+pub fn translate_cursor(fused: &mut FusedCursor, cursor_icon: egui::CursorIcon) {
+    let tmp_icon = match cursor_icon {
         CursorIcon::Default => SystemCursor::Arrow,
         CursorIcon::PointingHand => SystemCursor::Hand,
         CursorIcon::ResizeHorizontal => SystemCursor::SizeWE,
@@ -266,6 +306,12 @@ pub fn translate_cursor(cursor_icon: egui::CursorIcon) -> sdl2::mouse::SystemCur
         CursorIcon::Grab | CursorIcon::Grabbing => SystemCursor::Hand,
 
         _ => SystemCursor::Arrow,
+    };
+
+    if tmp_icon != fused.icon {
+        fused.cursor = Cursor::from_system(tmp_icon).unwrap();
+        fused.icon = tmp_icon;
+        fused.cursor.set()
     }
 }
 

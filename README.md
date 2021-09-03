@@ -6,7 +6,8 @@ This is a backend implementation for [Egui](https://github.com/emilk/egui) that 
 I've included an example in the examples folder to illustrate how the three can be used together. To run the example, do the following:
 ```
 cargo build --examples
-cargo run --example example
+cargo run --example mix
+cargo run --example basic
 ```
 Starting with v13.1 SDL2 is 'bundled' as a cargo requirement and so SDL2 needn't be setup separately. If, however, you wish to be in control of the SDL2 setup, you can remove the bundled feature from the cargo.toml and set up the SDL2 framework separately, as described in the SDL2 repo above.
 
