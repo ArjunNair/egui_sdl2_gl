@@ -56,6 +56,7 @@ fn main() {
 
     let mut enable_vsync = false;
     let mut quit = false;
+    let mut slider = 0.0;
 
     'running: loop {
         if enable_vsync {
@@ -76,6 +77,8 @@ fn main() {
         egui::CentralPanel::default().show(&egui_ctx, |ui| {
             ui.label(" ");
             ui.text_edit_multiline(&mut test_str);
+            ui.label(" ");
+            ui.add(egui::Slider::new(&mut slider, 0.0..=50.0).text("Slider"));
             ui.label(" ");
             ui.add(Checkbox::new(&mut enable_vsync, "Reduce CPU Usage?"));
             ui.separator();
