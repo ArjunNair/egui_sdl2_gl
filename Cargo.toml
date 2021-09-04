@@ -25,7 +25,6 @@ version = "0.7"
 optional = true
 
 [features]
-default = []
 clipboard = ["copypasta"]
 
 [dev-dependencies]

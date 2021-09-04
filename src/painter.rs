@@ -3,14 +3,13 @@ extern crate sdl2;
 use core::mem;
 use core::ptr;
 use core::str;
-use gl::types::{GLchar, GLenum, GLint, GLsizeiptr, GLsync, GLuint};
-use std::ffi::CString;
-use std::os::raw::c_void;
-
 use egui::{
     paint::{Color32, Mesh, Texture},
     vec2, ClippedMesh, Pos2, Rect,
 };
+use gl::types::{GLchar, GLenum, GLint, GLsizeiptr, GLsync, GLuint};
+use std::ffi::CString;
+use std::os::raw::c_void;
 
 #[derive(Default)]
 struct UserTexture {
@@ -442,18 +441,15 @@ impl Painter {
             let u_screen_size = CString::new("u_screen_size").unwrap();
             let u_screen_size_ptr = u_screen_size.as_ptr();
             let u_screen_size_loc = gl::GetUniformLocation(self.program, u_screen_size_ptr);
-            let screen_size_pixels = vec2(canvas_width as f32, canvas_height as f32);
-            let screen_size_points = screen_size_pixels / pixels_per_point;
-            gl::Uniform2f(
-                u_screen_size_loc,
-                screen_size_points.x,
-                screen_size_points.y,
-            );
+            let (x, y) = (self.screen_rect.width(), self.screen_rect.height());
+            gl::Uniform2f(u_screen_size_loc, x, y);
             let u_sampler = CString::new("u_sampler").unwrap();
             let u_sampler_ptr = u_sampler.as_ptr();
             let u_sampler_loc = gl::GetUniformLocation(self.program, u_sampler_ptr);
             gl::Uniform1i(u_sampler_loc, 0);
             gl::Viewport(0, 0, canvas_width as i32, canvas_height as i32);
+            let screen_x = canvas_width as f32;
+            let screen_y = canvas_height as f32;
 
             for ClippedMesh(clip_rect, mesh) in meshes {
                 gl::BindTexture(gl::TEXTURE_2D, self.get_texture(mesh.texture_id));
@@ -462,10 +458,10 @@ impl Painter {
                 let clip_min_y = pixels_per_point * clip_rect.min.y;
                 let clip_max_x = pixels_per_point * clip_rect.max.x;
                 let clip_max_y = pixels_per_point * clip_rect.max.y;
-                let clip_min_x = clip_min_x.clamp(0.0, screen_size_pixels.x);
-                let clip_min_y = clip_min_y.clamp(0.0, screen_size_pixels.y);
-                let clip_max_x = clip_max_x.clamp(clip_min_x, screen_size_pixels.x);
-                let clip_max_y = clip_max_y.clamp(clip_min_y, screen_size_pixels.y);
+                let clip_min_x = clip_min_x.clamp(0.0, x);
+                let clip_min_y = clip_min_y.clamp(0.0, y);
+                let clip_max_x = clip_max_x.clamp(clip_min_x, screen_x);
+                let clip_max_y = clip_max_y.clamp(clip_min_y, screen_y);
                 let clip_min_x = clip_min_x.round() as i32;
                 let clip_min_y = clip_min_y.round() as i32;
                 let clip_max_x = clip_max_x.round() as i32;

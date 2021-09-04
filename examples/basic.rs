@@ -42,8 +42,7 @@ fn main() {
     debug_assert_eq!(gl_attr.context_version(), (3, 2));
 
     // Init egui stuff
-    let (mut painter, mut egui_input_state) =
-        egui_backend::with_sdl2(&window, DpiScaling::Custom(1.0));
+    let (mut painter, mut egui_state) = egui_backend::with_sdl2(&window, DpiScaling::Custom(2.0));
     let mut egui_ctx = egui::CtxRef::default();
     let mut event_pump = sdl_context.event_pump().unwrap();
 
@@ -69,8 +68,8 @@ fn main() {
                 .unwrap()
         }
 
-        egui_input_state.input.time = Some(start_time.elapsed().as_secs_f64());
-        egui_ctx.begin_frame(egui_input_state.input.take());
+        egui_state.input.time = Some(start_time.elapsed().as_secs_f64());
+        egui_ctx.begin_frame(egui_state.input.take());
 
         egui::CentralPanel::default().show(&egui_ctx, |ui| {
             ui.label(" ");
@@ -86,8 +85,8 @@ fn main() {
         });
 
         let (egui_output, paint_cmds) = egui_ctx.end_frame();
-        // Fuse cursor
-        egui_backend::translate_cursor(&mut egui_input_state.fused_cursor, egui_output.cursor_icon);
+        // Fuse output
+        egui_state.fuse_output(&egui_output);
 
         // For default dpi scaling only, Update window when the size of resized window is very small (to avoid egui::CentralPanel distortions).
         // if egui_ctx.used_size() != painter.screen_rect.size() {
@@ -96,12 +95,6 @@ fn main() {
         //     let (w, h) = (_size.x as u32, _size.y as u32);
         //     window.set_size(w, h).unwrap();
         // }
-
-        // Handle cut, copy text from egui
-        if !egui_output.copied_text.is_empty() {
-            // Fuse clipboard
-            egui_backend::copy_to_clipboard(&mut egui_input_state, egui_output.copied_text);
-        }
 
         let paint_jobs = egui_ctx.tessellate(paint_cmds);
 
@@ -114,11 +107,10 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
-         
         if !egui_output.needs_repaint {
             std::thread::sleep(Duration::from_millis(10))
         }
-        
+
         painter.paint_jobs(None, paint_jobs, &egui_ctx.texture());
 
         window.gl_swap_window();
@@ -128,13 +120,8 @@ fn main() {
             match event {
                 Event::Quit { .. } => break 'running,
                 _ => {
-                    // Fuse event
-                    egui_backend::input_to_egui(
-                        &window,
-                        event,
-                        &mut painter,
-                        &mut egui_input_state,
-                    );
+                    // Fuse input
+                    egui_state.fuse_input(&window, event, &mut painter);
                 }
             }
         }

@@ -51,7 +51,7 @@ fn main() {
         .unwrap();
 
     // Init egui stuff
-    let (mut painter, mut egui_input_state) = egui_backend::with_sdl2(&window, DpiScaling::Default);
+    let (mut painter, mut egui_state) = egui_backend::with_sdl2(&window, DpiScaling::Default);
     let mut egui_ctx = egui::CtxRef::default();
     let mut event_pump = sdl_context.event_pump().unwrap();
     let mut srgba: Vec<Color32> = Vec::new();
@@ -81,8 +81,8 @@ fn main() {
     let mut quit = false;
 
     'running: loop {
-        egui_input_state.input.time =  Some(start_time.elapsed().as_secs_f64());
-        egui_ctx.begin_frame(egui_input_state.input.take());
+        egui_state.input.time = Some(start_time.elapsed().as_secs_f64());
+        egui_ctx.begin_frame(egui_state.input.take());
 
         // An example of how OpenGL can be used to draw custom stuff with egui
         // overlaying it:
@@ -110,6 +110,7 @@ fn main() {
                 }
             }
         }
+
         sine_shift += 0.1f32;
 
         // This updates the previously initialized texture with new data.
@@ -133,14 +134,7 @@ fn main() {
         });
 
         let (egui_output, paint_cmds) = egui_ctx.end_frame();
-        // Fuse cursor
-        egui_backend::translate_cursor(&mut egui_input_state.fused_cursor, egui_output.cursor_icon);
-
-        //Handle cut, copy text from egui
-        if !egui_output.copied_text.is_empty() {
-            // Fuse clipboard
-            egui_backend::copy_to_clipboard(&mut egui_input_state, egui_output.copied_text);
-        }
+        egui_state.fuse_output(&egui_output);
 
         let paint_jobs = egui_ctx.tessellate(paint_cmds);
 
@@ -150,18 +144,15 @@ fn main() {
         // Since we are custom drawing an OpenGL Triangle we don't need egui to clear the background.
         painter.paint_jobs(None, paint_jobs, &egui_ctx.texture());
 
+        window.gl_swap_window();
+
         // Using regular SDL2 event pipeline
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit { .. } => break 'running,
                 _ => {
                     // Fuse event
-                    egui_backend::input_to_egui(
-                        &window,
-                        event,
-                        &mut painter,
-                        &mut egui_input_state,
-                    );
+                    egui_state.fuse_input(&window, event, &mut painter);
                 }
             }
         }

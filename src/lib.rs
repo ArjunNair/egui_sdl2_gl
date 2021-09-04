@@ -5,11 +5,8 @@
 pub use egui;
 pub use gl;
 pub use sdl2;
-
 mod painter;
-
-pub use painter::Painter;
-
+use painter::Painter;
 use {
     egui::*,
     sdl2::{
@@ -21,19 +18,13 @@ use {
 };
 
 #[cfg(feature = "clipboard")]
-use copypasta::{
-    ClipboardContext,
-    ClipboardProvider,
-};
+use copypasta::{ClipboardContext, ClipboardProvider};
 
 #[cfg(not(feature = "clipboard"))]
 mod clipboard;
 
 #[cfg(not(feature = "clipboard"))]
-use clipboard::{
-    ClipboardContext, // TODO: remove
-    ClipboardProvider,
-};
+use clipboard::{ClipboardContext, ClipboardProvider};
 
 pub struct FusedCursor {
     pub cursor: Cursor,
@@ -89,6 +80,22 @@ impl EguiInputState {
             modifiers: Modifiers::default(),
         };
         (painter, _self)
+    }
+
+    pub fn fuse_input(
+        &mut self,
+        window: &sdl2::video::Window,
+        event: sdl2::event::Event,
+        painter: &mut Painter,
+    ) {
+        input_to_egui(window, event, painter, self);
+    }
+
+    pub fn fuse_output(&mut self, egui_output: &egui::Output) {
+        if !egui_output.copied_text.is_empty() {
+            copy_to_clipboard(self, egui_output.copied_text.clone());
+        }
+        translate_cursor(&mut self.fused_cursor, egui_output.cursor_icon);
     }
 }
 
@@ -231,18 +238,16 @@ pub fn input_to_egui(
             state.input.events.push(Event::Text(text));
         }
 
-        MouseWheel {x, y, .. } => {
-            let delta = egui::vec2(x as f32, y as f32); // Correct for web, but too slow for mac native :/
-
-            if state.modifiers.ctrl {
-                // Treat as zoom instead:
-                state.input.zoom_delta *= (delta.y / 200.0).exp();
+        MouseWheel { x, y, .. } => {
+            let delta = vec2(x as f32 * 8.0, y as f32 * 8.0);
+            let sdl = window.subsystem().sdl();
+            if sdl.keyboard().mod_state() & Mod::LCTRLMOD == Mod::LCTRLMOD
+                || sdl.keyboard().mod_state() & Mod::RCTRLMOD == Mod::RCTRLMOD
+            {
+                state.input.zoom_delta *= (delta.y / 150.0).exp();
             } else {
-                state.input.scroll_delta += delta;
+                state.input.scroll_delta = delta;
             }
-
-            
-
         }
 
         _ => {
@@ -331,7 +336,6 @@ pub fn translate_cursor(fused: &mut FusedCursor, cursor_icon: egui::CursorIcon) 
         CursorIcon::Wait => SystemCursor::Wait,
         //There doesn't seem to be a suitable SDL equivalent...
         CursorIcon::Grab | CursorIcon::Grabbing => SystemCursor::Hand,
-
         _ => SystemCursor::Arrow,
     };
 
@@ -342,7 +346,7 @@ pub fn translate_cursor(fused: &mut FusedCursor, cursor_icon: egui::CursorIcon) 
     }
 }
 
-pub fn init_clipboard() -> Option<ClipboardContext> {
+fn init_clipboard() -> Option<ClipboardContext> {
     match ClipboardContext::new() {
         Ok(clipboard) => Some(clipboard),
         Err(err) => {
