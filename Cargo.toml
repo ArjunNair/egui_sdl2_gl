@@ -20,14 +20,13 @@ features = ["bundled"]
 gl = "0.14"
 egui = "0.14"
 
-[dependencies.clipboard]
-package = "cli-clipboard"
-#version = "0.5"
-version = "0.2"
+[dependencies.copypasta]
+version = "0.7"
 optional = true
 
 [features]
-default = ["clipboard"]
+default = []
+clipboard = ["copypasta"]
 
 [dev-dependencies]
 egui_demo_lib = "0.14"

@@ -20,14 +20,20 @@ use {
     },
 };
 
+#[cfg(feature = "clipboard")]
+use copypasta::{
+    ClipboardContext,
+    ClipboardProvider,
+};
+
 #[cfg(not(feature = "clipboard"))]
 mod clipboard;
 
+#[cfg(not(feature = "clipboard"))]
 use clipboard::{
     ClipboardContext, // TODO: remove
     ClipboardProvider,
 };
-use sdl2::sys::SDL_SystemCursor;
 
 pub struct FusedCursor {
     pub cursor: Cursor,
@@ -226,8 +232,17 @@ pub fn input_to_egui(
         }
 
         MouseWheel {x, y, .. } => {
-            println!("x: {} y: {}", y, x);
-            state.input.scroll_delta = vec2(x as f32, y as f32);
+            let delta = egui::vec2(x as f32, y as f32); // Correct for web, but too slow for mac native :/
+
+            if state.modifiers.ctrl {
+                // Treat as zoom instead:
+                state.input.zoom_delta *= (delta.y / 200.0).exp();
+            } else {
+                state.input.scroll_delta += delta;
+            }
+
+            
+
         }
 
         _ => {
