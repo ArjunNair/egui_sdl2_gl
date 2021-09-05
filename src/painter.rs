@@ -111,7 +111,7 @@ pub struct Painter {
     // Call fence for sdl vsync so the CPU won't heat up if there's no heavy activity.
     pub gl_sync_fence: GLsync,
     egui_texture_version: Option<u64>,
-    user_textures: Vec<UserTexture>,
+    user_textures: Vec<Option<UserTexture>>,
     pub pixels_per_point: f32,
     pub canvas_size: (u32, u32),
     pub screen_rect: Rect,
@@ -261,14 +261,30 @@ impl Painter {
         }
 
         let id = egui::TextureId::User(self.user_textures.len() as u64);
-        self.user_textures.push(UserTexture {
+        self.user_textures.push(Some(UserTexture {
             size,
             pixels,
             texture: None,
             filtering,
             dirty: true,
-        });
+        }));
         id
+    }
+
+    pub fn free_user_texture(&mut self, id: egui::TextureId) {
+        if let egui::TextureId::User(id) = id {
+            let idx = id as usize;
+            if idx < self.user_textures.len() {
+                if let Some(UserTexture {
+                    texture: Some(buffer),
+                    ..
+                }) = self.user_textures[idx].as_mut()
+                {
+                    unsafe { gl::DeleteBuffers(1, buffer) }
+                }
+                self.user_textures[idx] = None
+            }
+        }
     }
 
     fn upload_egui_texture(&mut self, texture: &Texture) {
@@ -312,96 +328,110 @@ impl Painter {
     fn upload_user_textures(&mut self) {
         unsafe {
             for user_texture in &mut self.user_textures {
-                if !user_texture.texture.is_none() && !user_texture.dirty {
-                    continue;
-                }
-                let pixels = std::mem::take(&mut user_texture.pixels);
-
-                if user_texture.texture.is_none() {
-                    let mut gl_texture = 0;
-                    gl::GenTextures(1, &mut gl_texture);
-                    gl::BindTexture(gl::TEXTURE_2D, gl_texture);
-                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
-                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
-
-                    if user_texture.filtering {
-                        gl::TexParameteri(
-                            gl::TEXTURE_2D,
-                            gl::TEXTURE_MIN_FILTER,
-                            gl::LINEAR as i32,
-                        );
-                        gl::TexParameteri(
-                            gl::TEXTURE_2D,
-                            gl::TEXTURE_MAG_FILTER,
-                            gl::LINEAR as i32,
-                        );
-                    } else {
-                        gl::TexParameteri(
-                            gl::TEXTURE_2D,
-                            gl::TEXTURE_MIN_FILTER,
-                            gl::NEAREST as i32,
-                        );
-                        gl::TexParameteri(
-                            gl::TEXTURE_2D,
-                            gl::TEXTURE_MAG_FILTER,
-                            gl::NEAREST as i32,
-                        );
+                if let Some(user_texture) = user_texture {
+                    if !user_texture.texture.is_none() && !user_texture.dirty {
+                        continue;
                     }
-                    user_texture.texture = Some(gl_texture);
-                } else {
-                    gl::BindTexture(gl::TEXTURE_2D, user_texture.texture.unwrap());
+
+                    let pixels = std::mem::take(&mut user_texture.pixels);
+
+                    if user_texture.texture.is_none() {
+                        let mut gl_texture = 0;
+                        gl::GenTextures(1, &mut gl_texture);
+                        gl::BindTexture(gl::TEXTURE_2D, gl_texture);
+                        gl::TexParameteri(
+                            gl::TEXTURE_2D,
+                            gl::TEXTURE_WRAP_S,
+                            gl::CLAMP_TO_EDGE as i32,
+                        );
+                        gl::TexParameteri(
+                            gl::TEXTURE_2D,
+                            gl::TEXTURE_WRAP_T,
+                            gl::CLAMP_TO_EDGE as i32,
+                        );
+
+                        if user_texture.filtering {
+                            gl::TexParameteri(
+                                gl::TEXTURE_2D,
+                                gl::TEXTURE_MIN_FILTER,
+                                gl::LINEAR as i32,
+                            );
+                            gl::TexParameteri(
+                                gl::TEXTURE_2D,
+                                gl::TEXTURE_MAG_FILTER,
+                                gl::LINEAR as i32,
+                            );
+                        } else {
+                            gl::TexParameteri(
+                                gl::TEXTURE_2D,
+                                gl::TEXTURE_MIN_FILTER,
+                                gl::NEAREST as i32,
+                            );
+                            gl::TexParameteri(
+                                gl::TEXTURE_2D,
+                                gl::TEXTURE_MAG_FILTER,
+                                gl::NEAREST as i32,
+                            );
+                        }
+                        user_texture.texture = Some(gl_texture);
+                    } else {
+                        gl::BindTexture(gl::TEXTURE_2D, user_texture.texture.unwrap());
+                    }
+
+                    let level = 0;
+                    let internal_format = gl::RGBA;
+                    let border = 0;
+                    let src_format = gl::RGBA;
+                    let src_type = gl::UNSIGNED_BYTE;
+
+                    gl::TexImage2D(
+                        gl::TEXTURE_2D,
+                        level,
+                        internal_format as i32,
+                        user_texture.size.0 as i32,
+                        user_texture.size.1 as i32,
+                        border,
+                        src_format,
+                        src_type,
+                        pixels.as_ptr() as *const c_void,
+                    );
+
+                    user_texture.dirty = false;
                 }
-
-                let level = 0;
-                let internal_format = gl::RGBA;
-                let border = 0;
-                let src_format = gl::RGBA;
-                let src_type = gl::UNSIGNED_BYTE;
-
-                gl::TexImage2D(
-                    gl::TEXTURE_2D,
-                    level,
-                    internal_format as i32,
-                    user_texture.size.0 as i32,
-                    user_texture.size.1 as i32,
-                    border,
-                    src_format,
-                    src_type,
-                    pixels.as_ptr() as *const c_void,
-                );
-
-                user_texture.dirty = false;
             }
         }
     }
 
-    fn get_texture(&self, texture_id: egui::TextureId) -> GLuint {
+    fn get_texture(&self, texture_id: egui::TextureId) -> Option<GLuint> {
         match texture_id {
-            egui::TextureId::Egui => self.egui_texture,
+            egui::TextureId::Egui => return Some(self.egui_texture),
             egui::TextureId::User(id) => {
                 let id = id as usize;
-                assert!(id < self.user_textures.len());
-                let texture = self.user_textures[id].texture;
-                texture.expect("Should have been uploaded")
+                if id < self.user_textures.len() {
+                    if let Some(user_texture) = &self.user_textures[id] {
+                        return user_texture.texture;
+                    }
+                }
+                return None;
             }
         }
     }
 
-    pub fn update_user_texture_data(&mut self, texture_id: egui::TextureId, pixels: &[Color32]) {
+    pub fn update_user_texture_data(&mut self, texture_id: egui::TextureId, _pixels: &[Color32]) {
         match texture_id {
             egui::TextureId::Egui => {}
             egui::TextureId::User(id) => {
                 let id = id as usize;
                 assert!(id < self.user_textures.len());
-                self.user_textures[id].pixels = Vec::with_capacity(pixels.len() * 4);
-
-                for p in pixels {
-                    self.user_textures[id].pixels.push(p[0]);
-                    self.user_textures[id].pixels.push(p[1]);
-                    self.user_textures[id].pixels.push(p[2]);
-                    self.user_textures[id].pixels.push(p[3]);
+                if let Some(UserTexture { pixels, dirty, .. }) = &mut self.user_textures[id] {
+                    for p in _pixels {
+                        pixels.push(p[0]);
+                        pixels.push(p[1]);
+                        pixels.push(p[2]);
+                        pixels.push(p[3]);
+                    }
+                    *dirty = true;
                 }
-                self.user_textures[id].dirty = true;
             }
         }
     }
@@ -452,30 +482,33 @@ impl Painter {
             let screen_y = canvas_height as f32;
 
             for ClippedMesh(clip_rect, mesh) in meshes {
-                gl::BindTexture(gl::TEXTURE_2D, self.get_texture(mesh.texture_id));
+                if let Some(texture_id) = self.get_texture(mesh.texture_id) {
+                    gl::BindTexture(gl::TEXTURE_2D, texture_id);
+                    let clip_min_x = pixels_per_point * clip_rect.min.x;
+                    let clip_min_y = pixels_per_point * clip_rect.min.y;
+                    let clip_max_x = pixels_per_point * clip_rect.max.x;
+                    let clip_max_y = pixels_per_point * clip_rect.max.y;
+                    let clip_min_x = clip_min_x.clamp(0.0, x);
+                    let clip_min_y = clip_min_y.clamp(0.0, y);
+                    let clip_max_x = clip_max_x.clamp(clip_min_x, screen_x);
+                    let clip_max_y = clip_max_y.clamp(clip_min_y, screen_y);
+                    let clip_min_x = clip_min_x.round() as i32;
+                    let clip_min_y = clip_min_y.round() as i32;
+                    let clip_max_x = clip_max_x.round() as i32;
+                    let clip_max_y = clip_max_y.round() as i32;
 
-                let clip_min_x = pixels_per_point * clip_rect.min.x;
-                let clip_min_y = pixels_per_point * clip_rect.min.y;
-                let clip_max_x = pixels_per_point * clip_rect.max.x;
-                let clip_max_y = pixels_per_point * clip_rect.max.y;
-                let clip_min_x = clip_min_x.clamp(0.0, x);
-                let clip_min_y = clip_min_y.clamp(0.0, y);
-                let clip_max_x = clip_max_x.clamp(clip_min_x, screen_x);
-                let clip_max_y = clip_max_y.clamp(clip_min_y, screen_y);
-                let clip_min_x = clip_min_x.round() as i32;
-                let clip_min_y = clip_min_y.round() as i32;
-                let clip_max_x = clip_max_x.round() as i32;
-                let clip_max_y = clip_max_y.round() as i32;
+                    //scissor Y coordinate is from the bottom
+                    gl::Scissor(
+                        clip_min_x,
+                        canvas_height as i32 - clip_max_y,
+                        clip_max_x - clip_min_x,
+                        clip_max_y - clip_min_y,
+                    );
 
-                //scissor Y coordinate is from the bottom
-                gl::Scissor(
-                    clip_min_x,
-                    canvas_height as i32 - clip_max_y,
-                    clip_max_x - clip_min_x,
-                    clip_max_y - clip_min_y,
-                );
-
-                self.paint_mesh(&mesh);
+                    self.paint_mesh(&mesh);
+                } else {
+                    continue;
+                }
             }
 
             gl::Disable(gl::SCISSOR_TEST);
@@ -610,11 +643,22 @@ impl Painter {
     pub fn cleanup(&self) {
         unsafe {
             gl::DeleteSync(self.gl_sync_fence);
+            for user in &self.user_textures {
+                if let Some(UserTexture {
+                    texture: Some(texture),
+                    ..
+                }) = user
+                {
+                    gl::DeleteBuffers(1, texture);
+                }
+            }
+
             gl::DeleteProgram(self.program);
             gl::DeleteBuffers(1, &self.pos_buffer);
             gl::DeleteBuffers(1, &self.tc_buffer);
             gl::DeleteBuffers(1, &self.color_buffer);
             gl::DeleteBuffers(1, &self.index_buffer);
+            gl::DeleteBuffers(1, &self.egui_texture);
             gl::DeleteVertexArrays(1, &self.vertex_array);
         }
     }

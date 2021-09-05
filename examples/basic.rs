@@ -116,7 +116,7 @@ fn main() {
         window.gl_swap_window();
 
         // Using regular SDL2 event pipeline
-        for event in event_pump.poll_iter() {
+        for event in event_pump.poll_event() {
             match event {
                 Event::Quit { .. } => break 'running,
                 _ => {
