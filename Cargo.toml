@@ -15,7 +15,7 @@ build = "build.rs"
 
 [dependencies.sdl2]
 version = "0.34"
-# features = ["bundled"]
+features = ["bundled"]
 
 [dependencies]
 gl = "0.14"
