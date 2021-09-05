@@ -11,7 +11,7 @@ repository = "https://github.com/ArjunNair/egui_sdl2_gl"
 categories = ["gui", "graphics"]
 keywords = ["sdl2", "opengl", "egui", "gui", "gamedev"]
 include = ["**/*.rs", "Cargo.toml"]
-build = "build.rs"
+# build = "build.rs"
 
 [dependencies.sdl2]
 version = "0.34"
