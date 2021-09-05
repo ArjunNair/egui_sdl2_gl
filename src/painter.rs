@@ -424,12 +424,17 @@ impl Painter {
                 let id = id as usize;
                 assert!(id < self.user_textures.len());
                 if let Some(UserTexture { pixels, dirty, .. }) = &mut self.user_textures[id] {
+                    {
+                        *pixels = Vec::with_capacity(pixels.len() * 4);
+                    }
+
                     for p in _pixels {
                         pixels.push(p[0]);
                         pixels.push(p[1]);
                         pixels.push(p[2]);
                         pixels.push(p[3]);
                     }
+
                     *dirty = true;
                 }
             }
