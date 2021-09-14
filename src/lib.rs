@@ -47,7 +47,7 @@ pub enum DpiScaling {
     Custom(f32),
 }
 
-pub struct EguiInputState {
+pub struct EguiStateHandler {
     pub fused_cursor: FusedCursor,
     pub pointer_pos: Pos2,
     pub clipboard: Option<ClipboardContext>,
@@ -55,7 +55,7 @@ pub struct EguiInputState {
     pub modifiers: Modifiers,
 }
 
-pub fn with_sdl2(window: &sdl2::video::Window, scale: DpiScaling) -> (Painter, EguiInputState) {
+pub fn with_sdl2(window: &sdl2::video::Window, scale: DpiScaling) -> (Painter, EguiStateHandler) {
     let scale = match scale {
         DpiScaling::Default => 96.0 / window.subsystem().display_dpi(0).unwrap().0,
         DpiScaling::Custom(custom) => {
@@ -63,12 +63,12 @@ pub fn with_sdl2(window: &sdl2::video::Window, scale: DpiScaling) -> (Painter, E
         }
     };
     let painter = painter::Painter::new(window, scale);
-    EguiInputState::new(painter)
+    EguiStateHandler::new(painter)
 }
 
-impl EguiInputState {
-    pub fn new(painter: Painter) -> (Painter, EguiInputState) {
-        let _self = EguiInputState {
+impl EguiStateHandler {
+    pub fn new(painter: Painter) -> (Painter, EguiStateHandler) {
+        let _self = EguiStateHandler {
             fused_cursor: FusedCursor::new(),
             pointer_pos: Pos2::new(0f32, 0f32),
             clipboard: init_clipboard(),
@@ -82,7 +82,7 @@ impl EguiInputState {
         (painter, _self)
     }
 
-    pub fn fuse_input(
+    pub fn process_input(
         &mut self,
         window: &sdl2::video::Window,
         event: sdl2::event::Event,
@@ -91,7 +91,7 @@ impl EguiInputState {
         input_to_egui(window, event, painter, self);
     }
 
-    pub fn fuse_output(&mut self, egui_output: &egui::Output) {
+    pub fn process_output(&mut self, egui_output: &egui::Output) {
         if !egui_output.copied_text.is_empty() {
             copy_to_clipboard(self, egui_output.copied_text.clone());
         }
@@ -103,7 +103,7 @@ pub fn input_to_egui(
     window: &sdl2::video::Window,
     event: sdl2::event::Event,
     painter: &mut Painter,
-    state: &mut EguiInputState,
+    state: &mut EguiStateHandler,
 ) {
     use sdl2::event::Event::*;
 
@@ -358,7 +358,7 @@ fn init_clipboard() -> Option<ClipboardContext> {
     }
 }
 
-pub fn copy_to_clipboard(egui_state: &mut EguiInputState, copy_text: String) {
+pub fn copy_to_clipboard(egui_state: &mut EguiStateHandler, copy_text: String) {
     if let Some(clipboard) = egui_state.clipboard.as_mut() {
         let result = clipboard.set_contents(copy_text);
         if result.is_err() {

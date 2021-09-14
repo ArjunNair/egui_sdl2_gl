@@ -62,9 +62,8 @@ fn main() {
         egui_ctx.begin_frame(egui_state.input.take());
         app.ui(&egui_ctx);
         let (egui_output, paint_cmds) = egui_ctx.end_frame();
-
-        // Fuse cursor
-        egui_state.fuse_output(&egui_output);
+        // Process ouput
+        egui_state.process_output(&egui_output);
 
         // For default dpi scaling only, Update window when the size of resized window is very small (to avoid egui::CentralPanel distortions).
         // if egui_ctx.used_size() != painter.screen_rect.size() {
@@ -98,8 +97,8 @@ fn main() {
                 match event {
                     Event::Quit { .. } => break 'running,
                     _ => {
-                        // Fuse event
-                        egui_state.fuse_input(&window, event, &mut painter);
+                        // Process input event
+                        egui_state.process_input(&window, event, &mut painter);
                     }
                 }
             }
@@ -108,8 +107,8 @@ fn main() {
                 match event {
                     Event::Quit { .. } => break 'running,
                     _ => {
-                        // Fuse event
-                        egui_state.fuse_input(&window, event, &mut painter);
+                        // Process input event
+                        egui_state.process_input(&window, event, &mut painter);
                     }
                 }
             }

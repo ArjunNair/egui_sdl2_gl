@@ -136,7 +136,8 @@ fn main() {
         });
 
         let (egui_output, paint_cmds) = egui_ctx.end_frame();
-        egui_state.fuse_output(&egui_output);
+        // Process ouput
+        egui_state.process_output(&egui_output);
 
         let paint_jobs = egui_ctx.tessellate(paint_cmds);
 
@@ -153,8 +154,8 @@ fn main() {
                 match event {
                     Event::Quit { .. } => break 'running,
                     _ => {
-                        // Fuse event
-                        egui_state.fuse_input(&window, event, &mut painter);
+                        // Process input event
+                        egui_state.process_input(&window, event, &mut painter);
                     }
                 }
             }
@@ -163,8 +164,8 @@ fn main() {
                 match event {
                     Event::Quit { .. } => break 'running,
                     _ => {
-                        // Fuse event
-                        egui_state.fuse_input(&window, event, &mut painter);
+                        // Process input event
+                        egui_state.process_input(&window, event, &mut painter);
                     }
                 }
             }
