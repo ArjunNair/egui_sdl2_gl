@@ -276,11 +276,11 @@ impl Painter {
             let idx = id as usize;
             if idx < self.user_textures.len() {
                 if let Some(UserTexture {
-                    texture: Some(texture),
+                    texture: Some(buffer),
                     ..
                 }) = self.user_textures[idx].as_mut()
                 {
-                    unsafe { gl::DeleteTextures(1, texture) }
+                    unsafe { gl::DeleteTextures(1, buffer) }
                 }
                 self.user_textures[idx] = None
             }
@@ -518,6 +518,7 @@ impl Painter {
 
             gl::Disable(gl::SCISSOR_TEST);
             gl::Disable(gl::FRAMEBUFFER_SRGB);
+            gl::Disable(gl::BLEND);
         }
     }
 
@@ -635,13 +636,15 @@ impl Painter {
             gl::EnableVertexAttribArray(a_srgba_loc);
 
             // --------------------------------------------------------------------
-
             gl::DrawElements(
                 gl::TRIANGLES,
                 indices_len as i32,
                 gl::UNSIGNED_SHORT,
                 ptr::null(),
             );
+            gl::DisableVertexAttribArray(a_pos_loc);
+            gl::DisableVertexAttribArray(a_tc_loc);
+            gl::DisableVertexAttribArray(a_srgba_loc);
         }
     }
 

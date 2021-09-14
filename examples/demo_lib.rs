@@ -14,19 +14,20 @@ fn main() {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let gl_attr = video_subsystem.gl_attr();
-    gl_attr.set_context_profile(GLProfile::Core);
 
     // Let OpenGL know we are dealing with SRGB colors so that it
     // can do the blending correctly. Not setting the framebuffer
     // leads to darkened, oversaturated colors.
     gl_attr.set_framebuffer_srgb_compatible(true);
+    gl_attr.set_double_buffer(true);
+    // gl_attr.set_multisample_samples(4);
 
     // OpenGL 3.2 is the minimum that we will support.
     gl_attr.set_context_version(3, 2);
 
     let window = video_subsystem
         .window(
-            "Demo: Egui backend for SDL2 + GL",
+            "Demo: Egui backend for SDL2 + GL2",
             SCREEN_WIDTH,
             SCREEN_HEIGHT,
         )
@@ -47,11 +48,13 @@ fn main() {
         .unwrap();
 
     // Init egui stuff
-    let (mut painter, mut egui_state) = egui_backend::with_sdl2(&window, DpiScaling::Custom(1.0));
+    let (mut painter, mut egui_state) = egui_backend::with_sdl2(&window, DpiScaling::Default);
     let mut app = egui_demo_lib::DemoWindows::default();
     let mut egui_ctx = egui::CtxRef::default();
     let mut event_pump = sdl_context.event_pump().unwrap();
     let start_time = Instant::now();
+
+    // egui_ctx.set_visuals(egui::Visuals::light());
 
     'running: loop {
         egui_state.input.time = Some(start_time.elapsed().as_secs_f64());
@@ -90,13 +93,24 @@ fn main() {
 
         window.gl_swap_window();
 
-        // Using regular SDL2 event pipeline
-        for event in event_pump.poll_iter() {
-            match event {
-                Event::Quit { .. } => break 'running,
-                _ => {
-                    // Fuse event
-                    egui_state.fuse_input(&window, event, &mut painter);
+        if !egui_output.needs_repaint {
+            if let Some(event) = event_pump.wait_event_timeout(5) {
+                match event {
+                    Event::Quit { .. } => break 'running,
+                    _ => {
+                        // Fuse event
+                        egui_state.fuse_input(&window, event, &mut painter);
+                    }
+                }
+            }
+        } else {
+            for event in event_pump.poll_iter() {
+                match event {
+                    Event::Quit { .. } => break 'running,
+                    _ => {
+                        // Fuse event
+                        egui_state.fuse_input(&window, event, &mut painter);
+                    }
                 }
             }
         }

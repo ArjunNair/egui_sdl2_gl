@@ -21,7 +21,8 @@ fn main() {
     // can do the blending correctly. Not setting the framebuffer
     // leads to darkened, oversaturated colors.
     gl_attr.set_framebuffer_srgb_compatible(true);
-
+    gl_attr.set_double_buffer(true);
+    gl_attr.set_multisample_samples(4);
     // OpenGL 3.2 is the minimum that we will support.
     gl_attr.set_context_version(3, 2);
 
@@ -79,7 +80,7 @@ fn main() {
             ui.label(" ");
             ui.add(Checkbox::new(&mut enable_vsync, "Reduce CPU Usage?"));
             ui.separator();
-            if ui.button("Quit").clicked() {
+            if ui.button("Quit?").clicked() {
                 quit = true;
             }
         });
@@ -115,13 +116,24 @@ fn main() {
 
         window.gl_swap_window();
 
-        // Using regular SDL2 event pipeline
-        for event in event_pump.poll_iter() {
-            match event {
-                Event::Quit { .. } => break 'running,
-                _ => {
-                    // Fuse input
-                    egui_state.fuse_input(&window, event, &mut painter);
+        if !egui_output.needs_repaint {
+            if let Some(event) = event_pump.wait_event_timeout(5) {
+                match event {
+                    Event::Quit { .. } => break 'running,
+                    _ => {
+                        // Fuse event
+                        egui_state.fuse_input(&window, event, &mut painter);
+                    }
+                }
+            }
+        } else {
+            for event in event_pump.poll_iter() {
+                match event {
+                    Event::Quit { .. } => break 'running,
+                    _ => {
+                        // Fuse event
+                        egui_state.fuse_input(&window, event, &mut painter);
+                    }
                 }
             }
         }

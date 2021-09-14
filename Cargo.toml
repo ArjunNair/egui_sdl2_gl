@@ -17,13 +17,13 @@ include = ["**/*.rs", "Cargo.toml"]
 version = "0.34"
 features = ["bundled"]
 
-[dependencies]
-gl = "0.14"
-egui = "0.14"
-
 [dependencies.copypasta]
 version = "0.7"
 optional = true
+
+[dependencies]
+egui = "0.14"
+gl = "0.14"
 
 [features]
 clipboard = ["copypasta"]

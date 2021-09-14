@@ -23,6 +23,8 @@ fn main() {
     // Let OpenGL know we are dealing with SRGB colors so that it
     // can do the blending correctly. Not setting the framebuffer
     // leads to darkened, oversaturated colors.
+    gl_attr.set_double_buffer(true);
+    gl_attr.set_multisample_samples(4);
     gl_attr.set_framebuffer_srgb_compatible(true);
 
     // OpenGL 3.2 is the minimum that we will support.
@@ -146,13 +148,24 @@ fn main() {
 
         window.gl_swap_window();
 
-        // Using regular SDL2 event pipeline
-        for event in event_pump.poll_iter() {
-            match event {
-                Event::Quit { .. } => break 'running,
-                _ => {
-                    // Fuse event
-                    egui_state.fuse_input(&window, event, &mut painter);
+        if !egui_output.needs_repaint {
+            if let Some(event) = event_pump.wait_event_timeout(5) {
+                match event {
+                    Event::Quit { .. } => break 'running,
+                    _ => {
+                        // Fuse event
+                        egui_state.fuse_input(&window, event, &mut painter);
+                    }
+                }
+            }
+        } else {
+            for event in event_pump.poll_iter() {
+                match event {
+                    Event::Quit { .. } => break 'running,
+                    _ => {
+                        // Fuse event
+                        egui_state.fuse_input(&window, event, &mut painter);
+                    }
                 }
             }
         }

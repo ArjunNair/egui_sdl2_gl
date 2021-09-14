@@ -244,7 +244,7 @@ pub fn input_to_egui(
             if sdl.keyboard().mod_state() & Mod::LCTRLMOD == Mod::LCTRLMOD
                 || sdl.keyboard().mod_state() & Mod::RCTRLMOD == Mod::RCTRLMOD
             {
-                state.input.zoom_delta *= (delta.y / 150.0).exp();
+                state.input.zoom_delta *= (delta.y / 125.0).exp();
             } else {
                 state.input.scroll_delta = delta;
             }
@@ -324,18 +324,20 @@ pub fn translate_virtual_key_code(key: sdl2::keyboard::Keycode) -> Option<egui::
 
 pub fn translate_cursor(fused: &mut FusedCursor, cursor_icon: egui::CursorIcon) {
     let tmp_icon = match cursor_icon {
+        CursorIcon::Crosshair => SystemCursor::Crosshair,
         CursorIcon::Default => SystemCursor::Arrow,
+        CursorIcon::Grab => SystemCursor::Hand,
+        CursorIcon::Grabbing => SystemCursor::SizeAll,
+        CursorIcon::Move => SystemCursor::SizeAll,
         CursorIcon::PointingHand => SystemCursor::Hand,
         CursorIcon::ResizeHorizontal => SystemCursor::SizeWE,
         CursorIcon::ResizeNeSw => SystemCursor::SizeNESW,
         CursorIcon::ResizeNwSe => SystemCursor::SizeNWSE,
         CursorIcon::ResizeVertical => SystemCursor::SizeNS,
         CursorIcon::Text => SystemCursor::IBeam,
-        CursorIcon::Crosshair => SystemCursor::Crosshair,
         CursorIcon::NotAllowed | CursorIcon::NoDrop => SystemCursor::No,
         CursorIcon::Wait => SystemCursor::Wait,
         //There doesn't seem to be a suitable SDL equivalent...
-        CursorIcon::Grab | CursorIcon::Grabbing => SystemCursor::Hand,
         _ => SystemCursor::Arrow,
     };
 
