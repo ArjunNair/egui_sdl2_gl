@@ -20,14 +20,14 @@ fn main() {
     // leads to darkened, oversaturated colors.
     gl_attr.set_framebuffer_srgb_compatible(true);
     gl_attr.set_double_buffer(true);
-    // gl_attr.set_multisample_samples(4);
+    gl_attr.set_multisample_samples(4);
 
     // OpenGL 3.2 is the minimum that we will support.
     gl_attr.set_context_version(3, 2);
 
     let window = video_subsystem
         .window(
-            "Demo: Egui backend for SDL2 + GL2",
+            "Demo: Egui backend for SDL2 + GL",
             SCREEN_WIDTH,
             SCREEN_HEIGHT,
         )

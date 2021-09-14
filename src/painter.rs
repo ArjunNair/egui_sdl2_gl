@@ -276,11 +276,11 @@ impl Painter {
             let idx = id as usize;
             if idx < self.user_textures.len() {
                 if let Some(UserTexture {
-                    texture: Some(buffer),
+                    texture: Some(texture),
                     ..
                 }) = self.user_textures[idx].as_mut()
                 {
-                    unsafe { gl::DeleteTextures(1, buffer) }
+                    unsafe { gl::DeleteTextures(1, texture) }
                 }
                 self.user_textures[idx] = None
             }
