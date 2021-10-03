@@ -467,8 +467,9 @@ impl Painter {
                 );
 
                 self.paint_mesh(&mesh);
-                gl::Disable(gl::SCISSOR_TEST);
             }
+            gl::Disable(gl::BLEND);
+            gl::Disable(gl::SCISSOR_TEST);
             gl::Disable(gl::FRAMEBUFFER_SRGB);
         }
     }
