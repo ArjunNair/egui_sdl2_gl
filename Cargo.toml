@@ -28,3 +28,7 @@ optional = true
 
 [features]
 default = ["clipboard"]
+
+[[examples]]
+name = "triangle"
+path = "triangle/main.rs"
