@@ -401,6 +401,11 @@ impl Painter {
         egui_texture: &Texture,
         pixels_per_point: f32,
     ) {
+        unsafe {
+            gl::PixelStorei(gl::UNPACK_ROW_LENGTH, 0);
+            gl::PixelStorei(gl::UNPACK_ALIGNMENT, 4);
+        }
+
         self.upload_egui_texture(egui_texture);
         self.upload_user_textures();
 
