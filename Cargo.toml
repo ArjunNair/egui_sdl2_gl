@@ -1,6 +1,6 @@
 [package]
 name = "egui_sdl2_gl"
-version = "0.14.0"
+version = "0.14.1"
 authors = ["Arjun Nair <arjunair@gmail.com>"]
 edition = "2018"
 description = "Backend for Egui to use with sdl2-rs and open gl"
@@ -13,9 +13,10 @@ keywords = ["sdl2", "opengl", "egui", "gui", "gamedev"]
 include = ["**/*.rs", "Cargo.toml"]
 # build = "build.rs"
 
-[dependencies.sdl2]
-version = "0.34"
-features = ["bundled"]
+[dependencies]
+gl = "0.14.0"
+egui = "0.14.2"
+sdl2 = "0.34.5"
 
 [dependencies.copypasta]
 version = "0.7"
@@ -27,6 +28,19 @@ gl = "0.14"
 
 [features]
 clipboard = ["copypasta"]
+sdl2_unsafe_textures = ["sdl2/unsafe_textures"]
+sdl2_gfx = ["sdl2/gfx"]
+sdl2_mixer = ["sdl2/mixer"]
+sdl2_image = ["sdl2/image"]
+sdl2_ttf = ["sdl2/ttf"]
+# SDL2 build features
+sdl2_use-bindgen = ["sdl2/use-bindgen"]
+sdl2_use-pkgconfig = ["sdl2/use-pkgconfig"]
+sdl2_use-vcpkg = ["sdl2/use-vcpkg"]
+sdl2_use-mac_framework = ["sdl2/use_mac_framework"]
+sdl2_bundled = ["sdl2/bundled"]
+sdl2_static-link = ["sdl2/static-link"]
+
 
 [dev-dependencies]
 egui_demo_lib = "0.14"
