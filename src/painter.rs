@@ -516,8 +516,6 @@ impl Painter {
                     );
 
                     self.paint_mesh(&mesh);
-                } else {
-                    continue;
                 }
             }
 
