@@ -22,10 +22,6 @@ sdl2 = "0.34.5"
 version = "0.7"
 optional = true
 
-[dependencies]
-egui = "0.14"
-gl = "0.14"
-
 [features]
 clipboard = ["copypasta"]
 sdl2_unsafe_textures = ["sdl2/unsafe_textures"]

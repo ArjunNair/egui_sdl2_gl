@@ -14,7 +14,7 @@ fn main() {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let gl_attr = video_subsystem.gl_attr();
-
+    gl_attr.set_context_profile(GLProfile::Core);
     // Let OpenGL know we are dealing with SRGB colors so that it
     // can do the blending correctly. Not setting the framebuffer
     // leads to darkened, oversaturated colors.
