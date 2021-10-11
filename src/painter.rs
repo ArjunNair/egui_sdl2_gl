@@ -404,7 +404,7 @@ impl Painter {
 
     fn get_texture(&self, texture_id: egui::TextureId) -> Option<GLuint> {
         match texture_id {
-            egui::TextureId::Egui => return Some(self.egui_texture),
+            egui::TextureId::Egui => Some(self.egui_texture),
             egui::TextureId::User(id) => {
                 let id = id as usize;
                 if id < self.user_textures.len() {
@@ -412,7 +412,7 @@ impl Painter {
                         return user_texture.texture;
                     }
                 }
-                return None;
+                None
             }
         }
     }
