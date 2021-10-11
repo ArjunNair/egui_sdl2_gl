@@ -11,20 +11,23 @@ repository = "https://github.com/ArjunNair/egui_sdl2_gl"
 categories = ["gui", "graphics"]
 keywords = ["sdl2", "opengl", "egui", "gui", "gamedev"]
 include = ["**/*.rs", "Cargo.toml"]
+# build = "build.rs"
 
 [dependencies]
 gl = "0.14.0"
 egui = "0.14.2"
 sdl2 = "0.34.5"
 
-[dependencies.clipboard]
-package = "cli-clipboard"
-#version = "0.5"
-version = "0.2"
+[dependencies.copypasta]
+version = "0.7"
 optional = true
 
+[dependencies]
+egui = "0.14"
+gl = "0.14"
+
 [features]
-default = ["clipboard"]
+clipboard = ["copypasta"]
 sdl2_unsafe_textures = ["sdl2/unsafe_textures"]
 sdl2_gfx = ["sdl2/gfx"]
 sdl2_mixer = ["sdl2/mixer"]
@@ -37,3 +40,7 @@ sdl2_use-vcpkg = ["sdl2/use-vcpkg"]
 sdl2_use-mac_framework = ["sdl2/use_mac_framework"]
 sdl2_bundled = ["sdl2/bundled"]
 sdl2_static-link = ["sdl2/static-link"]
+
+
+[dev-dependencies]
+egui_demo_lib = "0.14"
