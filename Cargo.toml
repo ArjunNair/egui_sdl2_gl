@@ -22,10 +22,6 @@ sdl2 = "0.34.5"
 version = "0.7"
 optional = true
 
-[dependencies]
-egui = "0.14"
-gl = "0.14"
-
 [features]
 clipboard = ["copypasta"]
 sdl2_unsafe_textures = ["sdl2/unsafe_textures"]
@@ -40,7 +36,6 @@ sdl2_use-vcpkg = ["sdl2/use-vcpkg"]
 sdl2_use-mac_framework = ["sdl2/use_mac_framework"]
 sdl2_bundled = ["sdl2/bundled"]
 sdl2_static-link = ["sdl2/static-link"]
-
 
 [dev-dependencies]
 egui_demo_lib = "0.14"
