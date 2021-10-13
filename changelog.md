@@ -2,6 +2,12 @@
 
 NOTE: The major version number of this library matches that of the egui major version that this library currently supports. The minor version number may be different though. 
 
+# v0.14.1
+* The full egui demo lib has been added to examples + cleanup of examples + refactoring. Thanks [Adia Robbie](https://github.com/Ar37-rs).
+* SDL2 bundled has been made optional again. Plus other SDL 2 features are now available as options. Thanks [Guillaume Gomez](https://github.com/GuillaumeGomez/).
+* Fixed build on doc.rs + other fixes GL related fixes. Thanks [Guillaume Gomez](https://github.com/GuillaumeGomez/).
+* Fixed correct window not being checked for window resize events. See [issue](https://github.com/ArjunNair/egui_sdl2_gl/issues/11). Thanks [Yamakaky](https://github.com/Yamakaky)
+
 # v0.14.0
 * Updated to egui v0.14.2
 * Updated README to reflect SDL2 bundle feature introduced in v0.13.1

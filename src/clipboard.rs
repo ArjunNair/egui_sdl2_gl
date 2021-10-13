@@ -1,6 +1,5 @@
 #[derive(Clone, Copy, Debug)]
 pub struct Error;
-
 impl core::fmt::Display for Error {
     fn fmt(&self, _f: &mut core::fmt::Formatter) -> core::fmt::Result {
         Ok(())
