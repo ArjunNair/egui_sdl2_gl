@@ -6,7 +6,7 @@ pub use egui;
 pub use gl;
 pub use sdl2;
 mod painter;
-use painter::Painter;
+pub use painter::Painter;
 use {
     egui::*,
     sdl2::{
