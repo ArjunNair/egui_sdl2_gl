@@ -46,29 +46,6 @@ impl EguiInputState {
     }
 }
 
-fn get_mouse_event(
-    btn: &MouseButton,
-    pressed: bool,
-    state: &EguiInputState,
-) -> Option<egui::Event> {
-    let button_pressed = match btn {
-        MouseButton::Left => Some(egui::PointerButton::Primary),
-        MouseButton::Right => Some(egui::PointerButton::Secondary),
-        MouseButton::Middle => Some(egui::PointerButton::Middle),
-        _ => None,
-    };
-
-    if button_pressed.is_some() {
-        return Some(egui::Event::PointerButton {
-            pos: state.pointer_pos,
-            button: button_pressed.unwrap(),
-            pressed: pressed,
-            modifiers: state.modifiers,
-        });
-    }
-    None
-}
-
 pub fn input_to_egui(event: sdl2::event::Event, state: &mut EguiInputState) {
     use sdl2::event::Event::*;
 
@@ -85,18 +62,30 @@ pub fn input_to_egui(event: sdl2::event::Event, state: &mut EguiInputState) {
         }
 
         //MouseButonLeft pressed is the only one needed by egui
-        MouseButtonDown { mouse_btn, .. } => {
-            if let Some(event) = get_mouse_event(&mouse_btn, true, state) {
-                state.input.events.push(event);
-            }
-        }
+        MouseButtonDown { mouse_btn, .. } => state.input.events.push(egui::Event::PointerButton {
+            pos: state.pointer_pos,
+            button: match mouse_btn {
+                MouseButton::Left => egui::PointerButton::Primary,
+                MouseButton::Right => egui::PointerButton::Secondary,
+                MouseButton::Middle => egui::PointerButton::Middle,
+                _ => unreachable!(),
+            },
+            pressed: true,
+            modifiers: state.modifiers,
+        }),
 
         //MouseButonLeft pressed is the only one needed by egui
-        MouseButtonUp { mouse_btn, .. } => {
-            if let Some(event) = get_mouse_event(&mouse_btn, false, state) {
-                state.input.events.push(event);
-            }
-        }
+        MouseButtonUp { mouse_btn, .. } => state.input.events.push(egui::Event::PointerButton {
+            pos: state.pointer_pos,
+            button: match mouse_btn {
+                MouseButton::Left => egui::PointerButton::Primary,
+                MouseButton::Right => egui::PointerButton::Secondary,
+                MouseButton::Middle => egui::PointerButton::Middle,
+                _ => unreachable!(),
+            },
+            pressed: false,
+            modifiers: state.modifiers,
+        }),
 
         MouseMotion { x, y, .. } => {
             state.pointer_pos = pos2(
