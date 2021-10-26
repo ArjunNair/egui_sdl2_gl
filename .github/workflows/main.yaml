@@ -1,0 +1,73 @@
+name: "egui_sdl2_gl"
+
+on:
+  pull_request:
+    branches:
+      - "*"
+  push:
+    branches:
+      - "*"
+
+jobs:
+  hygiene:
+    name: Hygiene
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        toolchain: [stable, nightly]
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Acquire source code
+        uses: actions/checkout@v2
+      - name: Acquire Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          override: true
+          profile: minimal
+          components: rustfmt, clippy
+        id: toolchain
+      - name: "Run clippy"
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --release --tests -- -D warnings
+      - name: "Run formatting check"
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: -- --check
+
+  build:
+    name: "Build/Test"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        toolchain: [nightly, stable]
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Acquire source code
+        uses: actions/checkout@v2
+      - name: Acquire Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          override: true
+          profile: minimal
+        id: toolchain
+      - name: "Run build"
+        run: RUST_BACKTRACE=1 cargo build
+      - name: "Run tests"
+        run: RUST_BACKTRACE=1 cargo test
