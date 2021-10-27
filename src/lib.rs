@@ -40,6 +40,12 @@ impl FusedCursor {
     }
 }
 
+impl Default for FusedCursor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub enum DpiScaling {
     /// Default is handled by sdl2, probably 1.0
     Default,
@@ -69,7 +75,7 @@ pub fn with_sdl2(window: &sdl2::video::Window, scale: DpiScaling) -> (Painter, E
 impl EguiStateHandler {
     pub fn new(painter: Painter) -> (Painter, EguiStateHandler) {
         let _self = EguiStateHandler {
-            fused_cursor: FusedCursor::new(),
+            fused_cursor: FusedCursor::default(),
             pointer_pos: Pos2::new(0f32, 0f32),
             clipboard: init_clipboard(),
             input: egui::RawInput {
@@ -108,13 +114,12 @@ pub fn input_to_egui(
     use sdl2::event::Event::*;
 
     let pixels_per_point = painter.pixels_per_point;
+    if event.get_window_id() != Some(window.id()) {
+        return;
+    }
     match event {
         // handle when window Resized and SizeChanged.
-        Window {
-            window_id,
-            win_event,
-            ..
-        } if window_id == window.id() => match win_event {
+        Window { win_event, .. } => match win_event {
             WindowEvent::Resized(_, _) | sdl2::event::WindowEvent::SizeChanged(_, _) => {
                 painter.update_screen_rect(window.drawable_size());
                 state.input.screen_rect = Some(painter.screen_rect);
@@ -169,8 +174,8 @@ pub fn input_to_egui(
         KeyUp {
             keycode, keymod, ..
         } => {
-            if !keycode.is_none() {
-                if let Some(key) = translate_virtual_key_code(keycode.unwrap()) {
+            if let Some(key_code) = keycode {
+                if let Some(key) = translate_virtual_key_code(key_code) {
                     state.modifiers = Modifiers {
                         alt: (keymod & Mod::LALTMOD == Mod::LALTMOD)
                             || (keymod & Mod::RALTMOD == Mod::RALTMOD),
@@ -217,8 +222,8 @@ pub fn input_to_egui(
         KeyDown {
             keycode, keymod, ..
         } => {
-            if !keycode.is_none() {
-                if let Some(key) = translate_virtual_key_code(keycode.unwrap()) {
+            if let Some(key_code) = keycode {
+                if let Some(key) = translate_virtual_key_code(key_code) {
                     state.modifiers = Modifiers {
                         alt: (keymod & Mod::LALTMOD == Mod::LALTMOD)
                             || (keymod & Mod::RALTMOD == Mod::RALTMOD),

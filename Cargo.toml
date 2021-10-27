@@ -1,6 +1,6 @@
 [package]
 name = "egui_sdl2_gl"
-version = "0.14.1"
+version = "0.15.0"
 authors = ["Arjun Nair <arjunair@gmail.com>"]
 edition = "2018"
 description = "Backend for Egui to use with sdl2-rs and open gl"
@@ -15,7 +15,7 @@ include = ["**/*.rs", "Cargo.toml"]
 
 [dependencies]
 gl = "0.14.0"
-egui = "0.14.2"
+egui = "0.15.0"
 sdl2 = "0.34.5"
 
 [dependencies.copypasta]
@@ -39,4 +39,4 @@ sdl2_static-link = ["sdl2/static-link"]
 
 
 [dev-dependencies]
-egui_demo_lib = "0.14"
+egui_demo_lib = "0.15"

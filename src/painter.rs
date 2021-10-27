@@ -327,77 +327,67 @@ impl Painter {
 
     fn upload_user_textures(&mut self) {
         unsafe {
-            for user_texture in &mut self.user_textures {
-                if let Some(user_texture) = user_texture {
-                    if !user_texture.texture.is_none() && !user_texture.dirty {
-                        continue;
-                    }
-
-                    let pixels = std::mem::take(&mut user_texture.pixels);
-
-                    if user_texture.texture.is_none() {
-                        let mut gl_texture = 0;
-                        gl::GenTextures(1, &mut gl_texture);
-                        gl::BindTexture(gl::TEXTURE_2D, gl_texture);
-                        gl::TexParameteri(
-                            gl::TEXTURE_2D,
-                            gl::TEXTURE_WRAP_S,
-                            gl::CLAMP_TO_EDGE as i32,
-                        );
-                        gl::TexParameteri(
-                            gl::TEXTURE_2D,
-                            gl::TEXTURE_WRAP_T,
-                            gl::CLAMP_TO_EDGE as i32,
-                        );
-
-                        if user_texture.filtering {
-                            gl::TexParameteri(
-                                gl::TEXTURE_2D,
-                                gl::TEXTURE_MIN_FILTER,
-                                gl::LINEAR as i32,
-                            );
-                            gl::TexParameteri(
-                                gl::TEXTURE_2D,
-                                gl::TEXTURE_MAG_FILTER,
-                                gl::LINEAR as i32,
-                            );
-                        } else {
-                            gl::TexParameteri(
-                                gl::TEXTURE_2D,
-                                gl::TEXTURE_MIN_FILTER,
-                                gl::NEAREST as i32,
-                            );
-                            gl::TexParameteri(
-                                gl::TEXTURE_2D,
-                                gl::TEXTURE_MAG_FILTER,
-                                gl::NEAREST as i32,
-                            );
-                        }
-                        user_texture.texture = Some(gl_texture);
-                    } else {
-                        gl::BindTexture(gl::TEXTURE_2D, user_texture.texture.unwrap());
-                    }
-
-                    let level = 0;
-                    let internal_format = gl::RGBA;
-                    let border = 0;
-                    let src_format = gl::RGBA;
-                    let src_type = gl::UNSIGNED_BYTE;
-
-                    gl::TexImage2D(
-                        gl::TEXTURE_2D,
-                        level,
-                        internal_format as i32,
-                        user_texture.size.0 as i32,
-                        user_texture.size.1 as i32,
-                        border,
-                        src_format,
-                        src_type,
-                        pixels.as_ptr() as *const c_void,
-                    );
-
-                    user_texture.dirty = false;
+            for user_texture in self.user_textures.iter_mut().flatten() {
+                if !user_texture.dirty {
+                    continue;
                 }
+
+                let pixels = std::mem::take(&mut user_texture.pixels);
+
+                if user_texture.texture.is_none() {
+                    let mut gl_texture = 0;
+                    gl::GenTextures(1, &mut gl_texture);
+                    gl::BindTexture(gl::TEXTURE_2D, gl_texture);
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
+
+                    if user_texture.filtering {
+                        gl::TexParameteri(
+                            gl::TEXTURE_2D,
+                            gl::TEXTURE_MIN_FILTER,
+                            gl::LINEAR as i32,
+                        );
+                        gl::TexParameteri(
+                            gl::TEXTURE_2D,
+                            gl::TEXTURE_MAG_FILTER,
+                            gl::LINEAR as i32,
+                        );
+                    } else {
+                        gl::TexParameteri(
+                            gl::TEXTURE_2D,
+                            gl::TEXTURE_MIN_FILTER,
+                            gl::NEAREST as i32,
+                        );
+                        gl::TexParameteri(
+                            gl::TEXTURE_2D,
+                            gl::TEXTURE_MAG_FILTER,
+                            gl::NEAREST as i32,
+                        );
+                    }
+                    user_texture.texture = Some(gl_texture);
+                } else {
+                    gl::BindTexture(gl::TEXTURE_2D, user_texture.texture.unwrap());
+                }
+
+                let level = 0;
+                let internal_format = gl::RGBA;
+                let border = 0;
+                let src_format = gl::RGBA;
+                let src_type = gl::UNSIGNED_BYTE;
+
+                gl::TexImage2D(
+                    gl::TEXTURE_2D,
+                    level,
+                    internal_format as i32,
+                    user_texture.size.0 as i32,
+                    user_texture.size.1 as i32,
+                    border,
+                    src_format,
+                    src_type,
+                    pixels.as_ptr() as *const c_void,
+                );
+
+                user_texture.dirty = false;
             }
         }
     }
@@ -654,13 +644,9 @@ impl Painter {
     pub fn cleanup(&self) {
         unsafe {
             gl::DeleteSync(self.gl_sync_fence);
-            for user in &self.user_textures {
-                if let Some(UserTexture {
-                    texture: Some(texture),
-                    ..
-                }) = user
-                {
-                    gl::DeleteTextures(1, texture);
+            for user in self.user_textures.iter().flatten() {
+                if user.texture.is_some() {
+                    gl::DeleteTextures(1, &user.texture.unwrap());
                 }
             }
 

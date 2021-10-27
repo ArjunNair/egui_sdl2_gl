@@ -55,7 +55,7 @@ fn main() {
     // Init egui stuff
     let (mut painter, mut egui_state) = egui_backend::with_sdl2(&window, DpiScaling::Default);
     let mut egui_ctx = egui::CtxRef::default();
-    let mut event_pump = sdl_context.event_pump().unwrap();
+    let mut event_pump: sdl2::EventPump = sdl_context.event_pump().unwrap();
     let mut srgba: Vec<Color32> = Vec::new();
 
     // For now we will just set everything to black, because
