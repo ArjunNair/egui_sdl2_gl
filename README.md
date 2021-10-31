@@ -4,12 +4,13 @@
 This is a backend implementation for [Egui](https://github.com/emilk/egui) that can be used with [SDL 2](https://github.com/Rust-SDL2/rust-sdl2) for events, audio, input et al and [OpenGL](https://github.com/brendanzab/gl-rs) for rendering.
 
 I've included an example in the examples folder to illustrate how the three can be used together. To run the example, do the following:
+
 ```
-cargo build --examples
-cargo run --example mix
-cargo run --example demo_lib
 cargo run --example basic
+cargo run --example mix
+cargo run --example demo_lib --features=use_epi
 ```
+
 Starting with v13.1 SDL2 is 'bundled' as a cargo requirement and so SDL2 needn't be setup separately. If, however, you wish to be in control of the SDL2 setup, you can remove the bundled feature from the cargo.toml and set up the SDL2 framework separately, as described in the SDL2 repo above.
 
 Note that using OpenGL involves wrapping **any**  Open GL call in an *unsafe* block. Have a look at the src/painter.rs file to see what I mean. This of course means that all bets are off when dealing with code inside the unsafe blocks, but that's the price to pay when dealing with raw OpenGL. 

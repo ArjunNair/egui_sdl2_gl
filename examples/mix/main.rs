@@ -1,10 +1,9 @@
 use std::time::Instant;
-
 //Alias the backend to something less mouthful
 use egui_backend::egui::{vec2, Color32, Image};
 use egui_backend::sdl2::video::GLProfile;
 use egui_backend::{egui, gl, sdl2};
-use egui_backend::{sdl2::event::Event, DpiScaling};
+use egui_backend::{sdl2::event::Event, DpiScaling, ShaderVersion};
 use egui_sdl2_gl as egui_backend;
 use sdl2::video::SwapInterval;
 mod triangle;
@@ -53,7 +52,8 @@ fn main() {
         .unwrap();
 
     // Init egui stuff
-    let (mut painter, mut egui_state) = egui_backend::with_sdl2(&window, DpiScaling::Default);
+    let (mut painter, mut egui_state) =
+        egui_backend::with_sdl2(&window, ShaderVersion::Default, DpiScaling::Default);
     let mut egui_ctx = egui::CtxRef::default();
     let mut event_pump: sdl2::EventPump = sdl_context.event_pump().unwrap();
     let mut srgba: Vec<Color32> = Vec::new();
@@ -90,7 +90,7 @@ fn main() {
         // overlaying it:
         // First clear the background to something nice.
         unsafe {
-            // Clear the screen to black
+            // Clear the screen to green
             gl::ClearColor(0.3, 0.6, 0.3, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
@@ -137,7 +137,7 @@ fn main() {
 
         let (egui_output, paint_cmds) = egui_ctx.end_frame();
         // Process ouput
-        egui_state.process_output(&egui_output);
+        egui_state.process_output(&window, &egui_output);
 
         let paint_jobs = egui_ctx.tessellate(paint_cmds);
 

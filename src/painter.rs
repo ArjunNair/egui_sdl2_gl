@@ -1,5 +1,8 @@
 extern crate gl;
 extern crate sdl2;
+#[cfg(feature = "use_epi")]
+use crate::epi::TextureAllocator;
+use crate::ShaderVersion;
 use core::mem;
 use core::ptr;
 use core::str;
@@ -31,7 +34,7 @@ struct UserTexture {
     dirty: bool,
 }
 
-const VS_SRC: &str = r#"
+const VS_SRC_150: &str = r#"
     #version 150
     uniform vec2 u_screen_size;
     in vec2 a_pos;
@@ -63,7 +66,7 @@ const VS_SRC: &str = r#"
     }
 "#;
 
-const FS_SRC: &str = r#"
+const FS_SRC_150: &str = r#"
     #version 150
     uniform sampler2D u_sampler;
     in vec4 v_rgba;
@@ -81,7 +84,7 @@ const FS_SRC: &str = r#"
     vec4 srgba_from_linear(vec4 rgba) {
         return vec4(srgb_from_linear(rgba.rgb), 255.0 * rgba.a);
     }
-    
+
     vec3 linear_from_srgb(vec3 srgb) {
         bvec3 cutoff = lessThan(srgb, vec3(10.31475));
         vec3 lower = srgb / vec3(3294.6);
@@ -98,6 +101,124 @@ const FS_SRC: &str = r#"
         vec4 texture_rgba = linear_from_srgba(texture(u_sampler, v_tc) * 255.0);
         f_color = v_rgba * texture_rgba;
     }
+"#;
+
+// VS_SRC and FS_SRC shaders taken from egui_glow crate.
+const VS_SRC: &str = r#"
+#if !defined(GL_ES) && __VERSION__ >= 140
+#define I in
+#define O out
+#define V(x) x
+#else
+#define I attribute
+#define O varying
+#define V(x) vec3(x)
+#endif
+
+#ifdef GL_ES
+precision mediump float;
+#endif
+uniform vec2 u_screen_size;
+I vec2 a_pos;
+I vec4 a_srgba; // 0-255 sRGB
+I vec2 a_tc;
+O vec4 v_rgba;
+O vec2 v_tc;
+
+// 0-1 linear  from  0-255 sRGB
+vec3 linear_from_srgb(vec3 srgb) {
+  bvec3 cutoff = lessThan(srgb, vec3(10.31475));
+  vec3 lower = srgb / vec3(3294.6);
+  vec3 higher = pow((srgb + vec3(14.025)) / vec3(269.025), vec3(2.4));
+  return mix(higher, lower, V(cutoff));
+}
+
+vec4 linear_from_srgba(vec4 srgba) {
+  return vec4(linear_from_srgb(srgba.rgb), srgba.a / 255.0);
+}
+
+void main() {
+  gl_Position = vec4(2.0 * a_pos.x / u_screen_size.x - 1.0, 1.0 - 2.0 * a_pos.y / u_screen_size.y, 0.0, 1.0);
+  // egui encodes vertex colors in gamma spaces, so we must decode the colors here:
+  v_rgba = linear_from_srgba(a_srgba);
+  v_tc = a_tc;
+}
+"#;
+
+const FS_SRC: &str = r#"
+#ifdef GL_ES
+precision mediump float;
+#endif
+
+uniform sampler2D u_sampler;
+#if defined(GL_ES) || __VERSION__ < 140
+varying vec4 v_rgba;
+varying vec2 v_tc;
+#else
+in vec4 v_rgba;
+in vec2 v_tc;
+out vec4 f_color;
+#endif
+
+#ifdef GL_ES
+// 0-255 sRGB  from  0-1 linear
+vec3 srgb_from_linear(vec3 rgb) {
+  bvec3 cutoff = lessThan(rgb, vec3(0.0031308));
+  vec3 lower = rgb * vec3(3294.6);
+  vec3 higher = vec3(269.025) * pow(rgb, vec3(1.0 / 2.4)) - vec3(14.025);
+  return mix(higher, lower, vec3(cutoff));
+}
+
+vec4 srgba_from_linear(vec4 rgba) {
+  return vec4(srgb_from_linear(rgba.rgb), 255.0 * rgba.a);
+}
+
+#if __VERSION__ < 300
+// 0-1 linear  from  0-255 sRGB
+vec3 linear_from_srgb(vec3 srgb) {
+  bvec3 cutoff = lessThan(srgb, vec3(10.31475));
+  vec3 lower = srgb / vec3(3294.6);
+  vec3 higher = pow((srgb + vec3(14.025)) / vec3(269.025), vec3(2.4));
+  return mix(higher, lower, vec3(cutoff));
+}
+
+vec4 linear_from_srgba(vec4 srgba) {
+  return vec4(linear_from_srgb(srgba.rgb), srgba.a / 255.0);
+}
+#endif
+#endif
+
+#ifdef GL_ES
+void main() {
+#if __VERSION__ < 300
+  // We must decode the colors, since WebGL doesn't come with sRGBA textures:
+  vec4 texture_rgba = linear_from_srgba(texture2D(u_sampler, v_tc) * 255.0);
+#else
+  // The texture is set up with `SRGB8_ALPHA8`, so no need to decode here!
+  vec4 texture_rgba = texture2D(u_sampler, v_tc);
+#endif
+
+  /// Multiply vertex color with texture color (in linear space).
+  gl_FragColor = v_rgba * texture_rgba;
+
+  // We must gamma-encode again since WebGL doesn't support linear blending in the framebuffer.
+  gl_FragColor = srgba_from_linear(v_rgba * texture_rgba) / 255.0;
+
+  // WebGL doesn't support linear blending in the framebuffer,
+  // so we apply this hack to at least get a bit closer to the desired blending:
+  gl_FragColor.a = pow(gl_FragColor.a, 1.6); // Empiric nonsense
+}
+#else
+void main() {
+  // The texture sampler is sRGB aware, and OpenGL already expects linear rgba output
+  // so no need for any sRGB conversions here:
+#if __VERSION__ < 140
+  gl_FragColor = v_rgba * texture2D(u_sampler, v_tc);
+#else
+  f_color = v_rgba * texture(u_sampler, v_tc);
+#endif
+}
+#endif
 "#;
 
 pub struct Painter {
@@ -125,7 +246,6 @@ pub fn compile_shader(src: &str, ty: GLenum) -> GLuint {
         let c_str = CString::new(src.as_bytes()).unwrap();
         gl::ShaderSource(shader, 1, &c_str.as_ptr(), ptr::null());
         gl::CompileShader(shader);
-
         // Get the compile status
         let mut status = gl::FALSE as GLint;
         gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut status);
@@ -183,7 +303,7 @@ pub fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
 }
 
 impl Painter {
-    pub fn new(window: &sdl2::video::Window, scale: f32) -> Painter {
+    pub fn new(window: &sdl2::video::Window, scale: f32, shader_ver: ShaderVersion) -> Painter {
         unsafe {
             let mut egui_texture = 0;
             gl::load_with(|name| window.subsystem().gl_get_proc_address(name) as *const _);
@@ -193,9 +313,13 @@ impl Painter {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-
-            let vert_shader = compile_shader(VS_SRC, gl::VERTEX_SHADER);
-            let frag_shader = compile_shader(FS_SRC, gl::FRAGMENT_SHADER);
+            let (vs_src, fs_src) = if let ShaderVersion::Default = shader_ver {
+                (VS_SRC_150, FS_SRC_150)
+            } else {
+                (VS_SRC, FS_SRC)
+            };
+            let vert_shader = compile_shader(vs_src, gl::VERTEX_SHADER);
+            let frag_shader = compile_shader(fs_src, gl::FRAGMENT_SHADER);
 
             let program = link_program(vert_shader, frag_shader);
             let mut vertex_array = 0;
@@ -271,6 +395,25 @@ impl Painter {
         id
     }
 
+    /// Creates a new user texture from rgba8
+    pub fn new_user_texture_rgba8(
+        &mut self,
+        size: (usize, usize),
+        rgba8_pixels: Vec<u8>,
+        filtering: bool,
+    ) -> egui::TextureId {
+        let id = egui::TextureId::User(self.user_textures.len() as u64);
+        self.user_textures.push(Some(UserTexture {
+            size,
+            pixels: rgba8_pixels,
+            texture: None,
+            filtering,
+            dirty: true,
+        }));
+        id
+    }
+
+    /// fn free_user_texture() and fn free() implemented from epi both are basically the same.
     pub fn free_user_texture(&mut self, id: egui::TextureId) {
         if let egui::TextureId::User(id) = id {
             let idx = id as usize;
@@ -426,6 +569,26 @@ impl Painter {
                     }
 
                     *dirty = true;
+                }
+            }
+        }
+    }
+
+    /// Updates texture rgba8 data
+    pub fn update_user_texture_rgba8_data(
+        &mut self,
+        texture_id: egui::TextureId,
+        rgba8_pixels: Vec<u8>,
+    ) {
+        match texture_id {
+            egui::TextureId::Egui => {}
+            egui::TextureId::User(id) => {
+                let id = id as usize;
+                if id < self.user_textures.len() {
+                    if let Some(user_textures) = self.user_textures[id].as_mut() {
+                        user_textures.pixels = rgba8_pixels;
+                        user_textures.dirty = true
+                    }
                 }
             }
         }
@@ -658,6 +821,21 @@ impl Painter {
             gl::DeleteTextures(1, &self.egui_texture);
             gl::DeleteVertexArrays(1, &self.vertex_array);
         }
+    }
+}
+
+#[cfg(feature = "use_epi")]
+impl TextureAllocator for Painter {
+    fn alloc_srgba_premultiplied(
+        &mut self,
+        size: (usize, usize),
+        srgba_pixels: &[egui::Color32],
+    ) -> egui::TextureId {
+        self.new_user_texture(size, srgba_pixels, true)
+    }
+
+    fn free(&mut self, id: egui::TextureId) {
+        self.free_user_texture(id)
     }
 }
 

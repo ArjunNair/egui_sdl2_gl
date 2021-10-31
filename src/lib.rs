@@ -6,7 +6,11 @@ pub use egui;
 pub use gl;
 pub use sdl2;
 pub mod painter;
+#[cfg(feature = "use_epi")]
+pub use epi;
 use painter::Painter;
+#[cfg(feature = "use_epi")]
+use std::time::Instant;
 use {
     egui::*,
     sdl2::{
@@ -16,15 +20,25 @@ use {
         mouse::{Cursor, SystemCursor},
     },
 };
-
-#[cfg(feature = "clipboard")]
-use copypasta::{ClipboardContext, ClipboardProvider};
-
-#[cfg(not(feature = "clipboard"))]
-mod clipboard;
-
-#[cfg(not(feature = "clipboard"))]
-use clipboard::{ClipboardContext, ClipboardProvider};
+#[cfg(feature = "use_epi")]
+/// Frame time for CPU usage.
+pub fn get_frame_time(start_time: Instant) -> f32 {
+    (Instant::now() - start_time).as_secs_f64() as f32
+}
+#[cfg(feature = "use_epi")]
+pub struct Signal;
+#[cfg(feature = "use_epi")]
+impl Default for Signal {
+    fn default() -> Self {
+        Self {}
+    }
+}
+#[cfg(feature = "use_epi")]
+use epi::RepaintSignal;
+#[cfg(feature = "use_epi")]
+impl RepaintSignal for Signal {
+    fn request_repaint(&self) {}
+}
 
 pub struct FusedCursor {
     pub cursor: Cursor,
@@ -53,37 +67,50 @@ pub enum DpiScaling {
     Custom(f32),
 }
 
+#[derive(Clone)]
+pub enum ShaderVersion {
+    /// Default is GLSL 150+.
+    Default,
+    /// support GLSL 140+ and GLES SL 300.
+    Adaptive,
+}
+
 pub struct EguiStateHandler {
     pub fused_cursor: FusedCursor,
     pub pointer_pos: Pos2,
-    pub clipboard: Option<ClipboardContext>,
     pub input: RawInput,
     pub modifiers: Modifiers,
+    pub native_pixels_per_point: f32,
 }
 
-pub fn with_sdl2(window: &sdl2::video::Window, scale: DpiScaling) -> (Painter, EguiStateHandler) {
+pub fn with_sdl2(
+    window: &sdl2::video::Window,
+    shader_ver: ShaderVersion,
+    scale: DpiScaling,
+) -> (Painter, EguiStateHandler) {
     let scale = match scale {
         DpiScaling::Default => 96.0 / window.subsystem().display_dpi(0).unwrap().0,
         DpiScaling::Custom(custom) => {
             (96.0 / window.subsystem().display_dpi(0).unwrap().0) * custom
         }
     };
-    let painter = painter::Painter::new(window, scale);
+    let painter = painter::Painter::new(window, scale, shader_ver);
     EguiStateHandler::new(painter)
 }
 
 impl EguiStateHandler {
     pub fn new(painter: Painter) -> (Painter, EguiStateHandler) {
+        let native_pixels_per_point = painter.pixels_per_point;
         let _self = EguiStateHandler {
             fused_cursor: FusedCursor::default(),
             pointer_pos: Pos2::new(0f32, 0f32),
-            clipboard: init_clipboard(),
             input: egui::RawInput {
                 screen_rect: Some(painter.screen_rect),
-                pixels_per_point: Some(painter.pixels_per_point),
+                pixels_per_point: Some(native_pixels_per_point),
                 ..Default::default()
             },
             modifiers: Modifiers::default(),
+            native_pixels_per_point,
         };
         (painter, _self)
     }
@@ -97,9 +124,18 @@ impl EguiStateHandler {
         input_to_egui(window, event, painter, self);
     }
 
-    pub fn process_output(&mut self, egui_output: &egui::Output) {
+    pub fn process_output(&mut self, window: &sdl2::video::Window, egui_output: &egui::Output) {
         if !egui_output.copied_text.is_empty() {
-            copy_to_clipboard(self, egui_output.copied_text.clone());
+            let copied_text = egui_output.copied_text.clone();
+            {
+                let result = window
+                    .subsystem()
+                    .clipboard()
+                    .set_clipboard_text(&copied_text);
+                if result.is_err() {
+                    dbg!("Unable to set clipboard content to SDL clipboard.");
+                }
+            }
         }
         translate_cursor(&mut self.fused_cursor, egui_output.cursor_icon);
     }
@@ -141,7 +177,7 @@ pub fn input_to_egui(
                     button: pressed,
                     pressed: true,
                     modifiers: state.modifiers,
-                })
+                });
             }
         }
 
@@ -159,7 +195,7 @@ pub fn input_to_egui(
                     button: released,
                     pressed: false,
                     modifiers: state.modifiers,
-                })
+                });
             }
         }
 
@@ -168,7 +204,7 @@ pub fn input_to_egui(
             state
                 .input
                 .events
-                .push(egui::Event::PointerMoved(state.pointer_pos))
+                .push(egui::Event::PointerMoved(state.pointer_pos));
         }
 
         KeyUp {
@@ -189,32 +225,12 @@ pub fn input_to_egui(
                         command: (keymod & Mod::LCTRLMOD == Mod::LCTRLMOD)
                             || (keymod & Mod::LGUIMOD == Mod::LGUIMOD),
                     };
-
-                    if state.modifiers.command && key == Key::C {
-                        println!("copy event");
-                        state.input.events.push(Event::Copy)
-                    } else if state.modifiers.command && key == Key::X {
-                        println!("cut event");
-                        state.input.events.push(Event::Cut)
-                    } else if state.modifiers.command && key == Key::V {
-                        println!("paste");
-                        if let Some(clipboard) = state.clipboard.as_mut() {
-                            match clipboard.get_contents() {
-                                Ok(contents) => {
-                                    state.input.events.push(Event::Text(contents));
-                                }
-                                Err(err) => {
-                                    eprintln!("Paste error: {}", err);
-                                }
-                            }
-                        }
-                    } else {
-                        state.input.events.push(Event::Key {
-                            key,
-                            pressed: false,
-                            modifiers: state.modifiers,
-                        });
-                    }
+					
+					state.input.events.push(Event::Key {
+                        key,
+                        pressed: false,
+                        modifiers: state.modifiers,
+                    });
                 }
             }
         }
@@ -237,12 +253,25 @@ pub fn input_to_egui(
                         command: (keymod & Mod::LCTRLMOD == Mod::LCTRLMOD)
                             || (keymod & Mod::LGUIMOD == Mod::LGUIMOD),
                     };
-
-                    state.input.events.push(Event::Key {
+					
+					state.input.events.push(Event::Key {
                         key,
                         pressed: true,
                         modifiers: state.modifiers,
                     });
+					
+					if state.modifiers.command && key == Key::C {
+                        // println!("copy event");
+                        state.input.events.push(Event::Copy);
+                    } else if state.modifiers.command && key == Key::X {
+                        // println!("cut event");
+                        state.input.events.push(Event::Cut);
+                    } else if state.modifiers.command && key == Key::V {
+                        // println!("paste");
+                        if let Ok(contents) = window.subsystem().clipboard().clipboard_text() {
+                            state.input.events.push(Event::Text(contents));
+                        }
+                    }
                 }
             }
         }
@@ -357,25 +386,6 @@ pub fn translate_cursor(fused: &mut FusedCursor, cursor_icon: egui::CursorIcon) 
     if tmp_icon != fused.icon {
         fused.cursor = Cursor::from_system(tmp_icon).unwrap();
         fused.icon = tmp_icon;
-        fused.cursor.set()
-    }
-}
-
-fn init_clipboard() -> Option<ClipboardContext> {
-    match ClipboardContext::new() {
-        Ok(clipboard) => Some(clipboard),
-        Err(err) => {
-            eprintln!("Failed to initialize clipboard: {}", err);
-            None
-        }
-    }
-}
-
-pub fn copy_to_clipboard(egui_state: &mut EguiStateHandler, copy_text: String) {
-    if let Some(clipboard) = egui_state.clipboard.as_mut() {
-        let result = clipboard.set_contents(copy_text);
-        if result.is_err() {
-            dbg!("Unable to set clipboard content.");
-        }
+        fused.cursor.set();
     }
 }
