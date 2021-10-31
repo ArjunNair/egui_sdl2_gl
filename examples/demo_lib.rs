@@ -89,8 +89,9 @@ fn main() {
         if app_output.quit {
             break 'running;
         }
-		
-		if !egui_output.needs_repaint {
+
+        if !egui_output.needs_repaint {
+			// Reactive every 1 second.
             if let Some(event) = event_pump.wait_event_timeout(1000) {
                 match event {
                     Event::Quit { .. } => break 'running,
@@ -131,7 +132,7 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
-		painter.paint_jobs(None, paint_jobs, &egui_ctx.texture());
+        painter.paint_jobs(None, paint_jobs, &egui_ctx.texture());
         window.gl_swap_window();
     }
 }

@@ -225,8 +225,8 @@ pub fn input_to_egui(
                         command: (keymod & Mod::LCTRLMOD == Mod::LCTRLMOD)
                             || (keymod & Mod::LGUIMOD == Mod::LGUIMOD),
                     };
-					
-					state.input.events.push(Event::Key {
+
+                    state.input.events.push(Event::Key {
                         key,
                         pressed: false,
                         modifiers: state.modifiers,
@@ -253,14 +253,14 @@ pub fn input_to_egui(
                         command: (keymod & Mod::LCTRLMOD == Mod::LCTRLMOD)
                             || (keymod & Mod::LGUIMOD == Mod::LGUIMOD),
                     };
-					
-					state.input.events.push(Event::Key {
+
+                    state.input.events.push(Event::Key {
                         key,
                         pressed: true,
                         modifiers: state.modifiers,
                     });
-					
-					if state.modifiers.command && key == Key::C {
+
+                    if state.modifiers.command && key == Key::C {
                         // println!("copy event");
                         state.input.events.push(Event::Copy);
                     } else if state.modifiers.command && key == Key::X {
