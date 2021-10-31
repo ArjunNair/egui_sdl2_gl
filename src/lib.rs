@@ -210,29 +210,33 @@ pub fn input_to_egui(
         KeyUp {
             keycode, keymod, ..
         } => {
-            if let Some(key_code) = keycode {
-                if let Some(key) = translate_virtual_key_code(key_code) {
-                    state.modifiers = Modifiers {
-                        alt: (keymod & Mod::LALTMOD == Mod::LALTMOD)
-                            || (keymod & Mod::RALTMOD == Mod::RALTMOD),
-                        ctrl: (keymod & Mod::LCTRLMOD == Mod::LCTRLMOD)
-                            || (keymod & Mod::RCTRLMOD == Mod::RCTRLMOD),
-                        shift: (keymod & Mod::LSHIFTMOD == Mod::LSHIFTMOD)
-                            || (keymod & Mod::RSHIFTMOD == Mod::RSHIFTMOD),
-                        mac_cmd: keymod & Mod::LGUIMOD == Mod::LGUIMOD,
+            let key_code = match keycode {
+                Some(key_code) => key_code,
+                _ => return,
+            };
+            let key = match translate_virtual_key_code(key_code) {
+                Some(key) => key,
+                _ => return,
+            };
+            state.modifiers = Modifiers {
+                alt: (keymod & Mod::LALTMOD == Mod::LALTMOD)
+                    || (keymod & Mod::RALTMOD == Mod::RALTMOD),
+                ctrl: (keymod & Mod::LCTRLMOD == Mod::LCTRLMOD)
+                    || (keymod & Mod::RCTRLMOD == Mod::RCTRLMOD),
+                shift: (keymod & Mod::LSHIFTMOD == Mod::LSHIFTMOD)
+                    || (keymod & Mod::RSHIFTMOD == Mod::RSHIFTMOD),
+                mac_cmd: keymod & Mod::LGUIMOD == Mod::LGUIMOD,
 
-                        //TOD: Test on both windows and mac
-                        command: (keymod & Mod::LCTRLMOD == Mod::LCTRLMOD)
-                            || (keymod & Mod::LGUIMOD == Mod::LGUIMOD),
-                    };
+                //TOD: Test on both windows and mac
+                command: (keymod & Mod::LCTRLMOD == Mod::LCTRLMOD)
+                    || (keymod & Mod::LGUIMOD == Mod::LGUIMOD),
+            };
 
-                    state.input.events.push(Event::Key {
-                        key,
-                        pressed: false,
-                        modifiers: state.modifiers,
-                    });
-                }
-            }
+            state.input.events.push(Event::Key {
+                key,
+                pressed: false,
+                modifiers: state.modifiers,
+            });
         }
 
         KeyDown {
