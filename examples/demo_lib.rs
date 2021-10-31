@@ -91,7 +91,7 @@ fn main() {
         }
 
         if !egui_output.needs_repaint {
-			// Reactive every 1 second.
+            // Reactive every 1 second.
             if let Some(event) = event_pump.wait_event_timeout(1000) {
                 match event {
                     Event::Quit { .. } => break 'running,

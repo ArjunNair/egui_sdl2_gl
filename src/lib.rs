@@ -238,40 +238,45 @@ pub fn input_to_egui(
         KeyDown {
             keycode, keymod, ..
         } => {
-            if let Some(key_code) = keycode {
-                if let Some(key) = translate_virtual_key_code(key_code) {
-                    state.modifiers = Modifiers {
-                        alt: (keymod & Mod::LALTMOD == Mod::LALTMOD)
-                            || (keymod & Mod::RALTMOD == Mod::RALTMOD),
-                        ctrl: (keymod & Mod::LCTRLMOD == Mod::LCTRLMOD)
-                            || (keymod & Mod::RCTRLMOD == Mod::RCTRLMOD),
-                        shift: (keymod & Mod::LSHIFTMOD == Mod::LSHIFTMOD)
-                            || (keymod & Mod::RSHIFTMOD == Mod::RSHIFTMOD),
-                        mac_cmd: keymod & Mod::LGUIMOD == Mod::LGUIMOD,
+            let key_code = match keycode {
+                Some(key_code) => key_code,
+                _ => return,
+            };
 
-                        //TOD: Test on both windows and mac
-                        command: (keymod & Mod::LCTRLMOD == Mod::LCTRLMOD)
-                            || (keymod & Mod::LGUIMOD == Mod::LGUIMOD),
-                    };
+            let key = match translate_virtual_key_code(key_code) {
+                Some(key) => key,
+                _ => return,
+            };
+            state.modifiers = Modifiers {
+                alt: (keymod & Mod::LALTMOD == Mod::LALTMOD)
+                    || (keymod & Mod::RALTMOD == Mod::RALTMOD),
+                ctrl: (keymod & Mod::LCTRLMOD == Mod::LCTRLMOD)
+                    || (keymod & Mod::RCTRLMOD == Mod::RCTRLMOD),
+                shift: (keymod & Mod::LSHIFTMOD == Mod::LSHIFTMOD)
+                    || (keymod & Mod::RSHIFTMOD == Mod::RSHIFTMOD),
+                mac_cmd: keymod & Mod::LGUIMOD == Mod::LGUIMOD,
 
-                    state.input.events.push(Event::Key {
-                        key,
-                        pressed: true,
-                        modifiers: state.modifiers,
-                    });
+                //TOD: Test on both windows and mac
+                command: (keymod & Mod::LCTRLMOD == Mod::LCTRLMOD)
+                    || (keymod & Mod::LGUIMOD == Mod::LGUIMOD),
+            };
 
-                    if state.modifiers.command && key == Key::C {
-                        // println!("copy event");
-                        state.input.events.push(Event::Copy);
-                    } else if state.modifiers.command && key == Key::X {
-                        // println!("cut event");
-                        state.input.events.push(Event::Cut);
-                    } else if state.modifiers.command && key == Key::V {
-                        // println!("paste");
-                        if let Ok(contents) = window.subsystem().clipboard().clipboard_text() {
-                            state.input.events.push(Event::Text(contents));
-                        }
-                    }
+            state.input.events.push(Event::Key {
+                key,
+                pressed: true,
+                modifiers: state.modifiers,
+            });
+
+            if state.modifiers.command && key == Key::C {
+                // println!("copy event");
+                state.input.events.push(Event::Copy);
+            } else if state.modifiers.command && key == Key::X {
+                // println!("cut event");
+                state.input.events.push(Event::Cut);
+            } else if state.modifiers.command && key == Key::V {
+                // println!("paste");
+                if let Ok(contents) = window.subsystem().clipboard().clipboard_text() {
+                    state.input.events.push(Event::Text(contents));
                 }
             }
         }
