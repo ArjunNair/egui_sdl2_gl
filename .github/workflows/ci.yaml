@@ -1,4 +1,4 @@
-name: "egui_sdl2_gl"
+name: CI
 
 on:
   pull_request:
@@ -53,6 +53,10 @@ jobs:
         os: [ubuntu-latest]
         toolchain: [nightly, stable]
 
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Acquire source code
         uses: actions/checkout@v2
@@ -63,12 +67,6 @@ jobs:
           override: true
           profile: minimal
         id: toolchain
-      - name: Install requirements
-        run: |
-         if [ "$RUNNER_OS" == "Linux" ]; then
-          sudo apt-get update && sudo apt-get install -y libsdl2-dev libx11-dev libxext-dev libxft-dev libxinerama-dev libxcursor-dev libxrender-dev libxfixes-dev libgl1-mesa-dev libglu1-mesa-dev libmpv-dev
-         fi
-        shell: bash
       - name: "Run build"
         run: RUST_BACKTRACE=1 cargo build
       - name: "Run tests"
