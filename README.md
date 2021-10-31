@@ -1,3 +1,7 @@
+[![Crates.io](https://img.shields.io/crates/v/egui_sdl2_gl.svg)](https://crates.io/crates/egui_sdl2_gl)
+[![Documentation](https://docs.rs/egui_sdl2_gl/badge.svg)](https://docs.rs/egui_sdl2_gl)
+[![CI](https://github.com/ArjunNair/egui_sdl2_gl/actions/workflows/ci.yml/badge.svg)](https://github.com/ArjunNair/egui_sdl2_gl/actions/workflows/ci.yml)
+
 # Egui backend for SDL2 + Open GL
 ![Example screenshot](/media/egui_sdl2_gl_example.png)
 
