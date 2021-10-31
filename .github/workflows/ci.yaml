@@ -1,4 +1,4 @@
-name: "egui_sdl2_gl"
+name: CI
 
 on:
   pull_request:
