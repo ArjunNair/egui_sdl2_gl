@@ -14,16 +14,15 @@ include = ["**/*.rs", "Cargo.toml"]
 # build = "build.rs"
 
 [dependencies]
-gl = "0.14.0"
-egui = "0.15.0"
-sdl2 = "0.34.5"
+gl = "0.14"
+egui = "0.15"
+sdl2 = "0.35"
 
-[dependencies.copypasta]
-version = "0.7"
+[dependencies.epi]
+version = "0.15"
 optional = true
 
 [features]
-clipboard = ["copypasta"]
 sdl2_unsafe_textures = ["sdl2/unsafe_textures"]
 sdl2_gfx = ["sdl2/gfx"]
 sdl2_mixer = ["sdl2/mixer"]
@@ -36,7 +35,7 @@ sdl2_use-vcpkg = ["sdl2/use-vcpkg"]
 sdl2_use-mac_framework = ["sdl2/use_mac_framework"]
 sdl2_bundled = ["sdl2/bundled"]
 sdl2_static-link = ["sdl2/static-link"]
-
+use_epi = ["epi"]
 
 [dev-dependencies]
 egui_demo_lib = "0.15"
