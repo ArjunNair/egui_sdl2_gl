@@ -1,6 +1,6 @@
 [package]
 name = "egui_sdl2_gl"
-version = "0.15.0"
+version = "0.16.0"
 authors = ["Arjun Nair <arjunair@gmail.com>"]
 edition = "2018"
 description = "Backend for Egui to use with sdl2-rs and open gl"
@@ -15,11 +15,11 @@ include = ["**/*.rs", "Cargo.toml"]
 
 [dependencies]
 gl = "0.14"
-egui = "0.15"
+egui = "0.16"
 sdl2 = "0.35"
 
 [dependencies.epi]
-version = "0.15"
+version = "0.16"
 optional = true
 
 [features]
