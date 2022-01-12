@@ -7,7 +7,7 @@ use core::mem;
 use core::ptr;
 use core::str;
 use egui::{
-    paint::{Color32, Mesh, Texture},
+    epaint::{Color32, FontImage, Mesh},
     vec2, ClippedMesh, Pos2, Rect,
 };
 use gl::types::{GLchar, GLenum, GLint, GLsizeiptr, GLsync, GLuint};
@@ -434,7 +434,7 @@ impl Painter {
         }
     }
 
-    fn upload_egui_texture(&mut self, texture: &Texture) {
+    fn upload_egui_texture(&mut self, texture: &FontImage) {
         if self.egui_texture_version == Some(texture.version) {
             return; // No change
         }
@@ -602,7 +602,7 @@ impl Painter {
         &mut self,
         bg_color: Option<Color32>,
         meshes: Vec<ClippedMesh>,
-        egui_texture: &Texture,
+        egui_texture: &FontImage,
     ) {
         unsafe {
             gl::PixelStorei(gl::UNPACK_ROW_LENGTH, 0);
