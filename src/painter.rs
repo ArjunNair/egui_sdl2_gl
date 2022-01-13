@@ -1,7 +1,7 @@
 extern crate gl;
 extern crate sdl2;
 #[cfg(feature = "use_epi")]
-use crate::epi::TextureAllocator;
+use crate::epi::{Image, TextureAllocator};
 use crate::ShaderVersion;
 use core::mem;
 use core::ptr;
@@ -830,15 +830,12 @@ impl Painter {
 
 #[cfg(feature = "use_epi")]
 impl TextureAllocator for Painter {
-    fn alloc_srgba_premultiplied(
-        &mut self,
-        size: (usize, usize),
-        srgba_pixels: &[egui::Color32],
-    ) -> egui::TextureId {
-        self.new_user_texture(size, srgba_pixels, true)
+    fn alloc(&self, image: Image) -> egui::TextureId {
+        let sizes = (image.size[0], image.size[1]);
+        self.new_user_texture(sizes, &image.pixels, true)
     }
 
-    fn free(&mut self, id: egui::TextureId) {
+    fn free(&self, id: egui::TextureId) {
         self.free_user_texture(id)
     }
 }

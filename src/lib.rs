@@ -34,7 +34,7 @@ impl Default for Signal {
     }
 }
 #[cfg(feature = "use_epi")]
-use epi::RepaintSignal;
+use epi::backend::RepaintSignal;
 #[cfg(feature = "use_epi")]
 impl RepaintSignal for Signal {
     fn request_repaint(&self) {}
