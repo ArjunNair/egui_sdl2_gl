@@ -115,7 +115,7 @@ fn main() {
                 }
             }
         } else {
-            painter.paint_jobs(None, paint_jobs, &egui_ctx.texture());
+            painter.paint_jobs(None, paint_jobs, &egui_ctx.font_image());
             window.gl_swap_window();
             for event in event_pump.poll_iter() {
                 match event {
