@@ -1,3 +1,6 @@
+#[cfg(not(feature = "use_epi"))]
+compile_error!("feature \"use_epi\" must be used");
+
 use egui_backend::{
     egui,
     epi::{
