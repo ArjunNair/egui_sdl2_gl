@@ -38,4 +38,4 @@ sdl2_static-link = ["sdl2/static-link"]
 use_epi = ["epi"]
 
 [dev-dependencies]
-egui_demo_lib = "0.15"
+egui_demo_lib = "0.16"
