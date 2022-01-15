@@ -1,7 +1,5 @@
 extern crate gl;
 extern crate sdl2;
-#[cfg(feature = "use_epi")]
-use crate::epi::{Image, TextureAllocator};
 use crate::ShaderVersion;
 use core::mem;
 use core::ptr;
@@ -825,18 +823,6 @@ impl Painter {
             gl::DeleteTextures(1, &self.egui_texture);
             gl::DeleteVertexArrays(1, &self.vertex_array);
         }
-    }
-}
-
-#[cfg(feature = "use_epi")]
-impl TextureAllocator for Painter {
-    fn alloc(&self, image: Image) -> egui::TextureId {
-        let sizes = (image.size[0], image.size[1]);
-        self.new_user_texture(sizes, &image.pixels, true)
-    }
-
-    fn free(&self, id: egui::TextureId) {
-        self.free_user_texture(id)
     }
 }
 
