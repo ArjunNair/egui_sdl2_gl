@@ -2,6 +2,9 @@
 
 NOTE: The major version number of this library matches that of the egui major version that this library currently supports. The minor version number may be different though. 
 
+# v0.16.0
+* Updated to egui v0.16. Thanks [FireFlightBoy](https://github.com/FirelightFlagboy)
+
 # v0.15.0
 * Updated to egui v0.15.0
 * Fix correct window not being checked for other events. See [isse] (https://github.com/ArjunNair/egui_sdl2_gl/issues/11). Thanks [Yamakaky](https://github.com/Yamakaky)
