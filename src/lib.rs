@@ -34,7 +34,7 @@ impl Default for Signal {
     }
 }
 #[cfg(feature = "use_epi")]
-use epi::RepaintSignal;
+use epi::backend::RepaintSignal;
 #[cfg(feature = "use_epi")]
 impl RepaintSignal for Signal {
     fn request_repaint(&self) {}
@@ -295,9 +295,12 @@ pub fn input_to_egui(
             if sdl.keyboard().mod_state() & Mod::LCTRLMOD == Mod::LCTRLMOD
                 || sdl.keyboard().mod_state() & Mod::RCTRLMOD == Mod::RCTRLMOD
             {
-                state.input.zoom_delta *= (delta.y / 125.0).exp();
+                state
+                    .input
+                    .events
+                    .push(Event::Zoom((delta.y / 125.0).exp()));
             } else {
-                state.input.scroll_delta = delta;
+                state.input.events.push(Event::Scroll(delta));
             }
         }
 

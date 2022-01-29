@@ -1,15 +1,16 @@
+#[cfg(not(feature = "use_epi"))]
+compile_error!("feature \"use_epi\" must be used");
+
 use egui_backend::{
     egui,
-    epi::{
-        backend::{AppOutput, FrameBuilder},
-        App, IntegrationInfo,
-    },
+    epi::{App, Frame, IntegrationInfo},
     get_frame_time, gl, sdl2,
     sdl2::event::Event,
     sdl2::video::GLProfile,
     sdl2::video::SwapInterval,
     DpiScaling, ShaderVersion, Signal,
 };
+use epi::backend::FrameData;
 use std::{sync::Arc, time::Instant};
 // Alias the backend to something less mouthful
 use egui_sdl2_gl as egui_backend;
@@ -61,14 +62,13 @@ fn main() {
     let mut event_pump = sdl_context.event_pump().unwrap();
     let start_time = Instant::now();
     let repaint_signal = Arc::new(Signal::default());
-    let mut app_output = AppOutput::default();
 
     'running: loop {
         egui_state.input.time = Some(start_time.elapsed().as_secs_f64());
         egui_ctx.begin_frame(egui_state.input.take());
         // Begin frame
         let frame_time = get_frame_time(start_time);
-        let mut frame = FrameBuilder {
+        let mut frame = Frame::new(FrameData {
             info: IntegrationInfo {
                 web_info: None,
                 cpu_usage: Some(frame_time),
@@ -76,17 +76,16 @@ fn main() {
                 prefer_dark_mode: None,
                 name: "egui + sdl2 + gl",
             },
-            tex_allocator: &mut painter,
-            output: &mut app_output,
+            output: Default::default(),
             repaint_signal: repaint_signal.clone(),
-        }
-        .build();
+        });
+
         app.update(&egui_ctx, &mut frame);
         let (egui_output, paint_cmds) = egui_ctx.end_frame();
         // Process ouput
         egui_state.process_output(&window, &egui_output);
         // Quite if needed.
-        if app_output.quit {
+        if frame.take_app_output().quit {
             break 'running;
         }
 
@@ -132,7 +131,7 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
-        painter.paint_jobs(None, paint_jobs, &egui_ctx.texture());
+        painter.paint_jobs(None, paint_jobs, &egui_ctx.font_image());
         window.gl_swap_window();
     }
 }
