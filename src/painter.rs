@@ -306,9 +306,9 @@ pub fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
 
 impl Painter {
     pub fn new(window: &sdl2::video::Window, scale: f32, shader_ver: ShaderVersion) -> Painter {
+        let mut egui_texture = 0;
+        gl::load_with(|name| window.subsystem().gl_get_proc_address(name) as *const _);
         unsafe {
-            let mut egui_texture = 0;
-            gl::load_with(|name| window.subsystem().gl_get_proc_address(name) as *const _);
             gl::GenTextures(1, &mut egui_texture);
             gl::BindTexture(gl::TEXTURE_2D, egui_texture);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
@@ -446,15 +446,15 @@ impl Painter {
             pixels.push(srgba[3]);
         }
 
-        unsafe {
-            gl::BindTexture(gl::TEXTURE_2D, self.egui_texture);
+        
+            unsafe {gl::BindTexture(gl::TEXTURE_2D, self.egui_texture)};
 
             let level = 0;
             let internal_format = gl::RGBA;
             let border = 0;
             let src_format = gl::RGBA;
             let src_type = gl::UNSIGNED_BYTE;
-            gl::TexImage2D(
+            unsafe {gl::TexImage2D(
                 gl::TEXTURE_2D,
                 level,
                 internal_format as i32,
@@ -464,10 +464,10 @@ impl Painter {
                 src_format,
                 src_type,
                 pixels.as_ptr() as *const c_void,
-            );
+            )};
 
             self.egui_texture_version = Some(texture.version);
-        }
+        
     }
 
     fn upload_user_textures(&mut self) {
@@ -682,11 +682,11 @@ impl Painter {
 
     fn paint_mesh(&self, mesh: &Mesh) {
         debug_assert!(mesh.is_valid());
+        let indices: Vec<u16> = mesh.indices.iter().map(move |idx| *idx as u16).collect();
+        let indices_len = indices.len();
+        let vertices = &mesh.vertices;
+        let vertices_len = vertices.len();
         unsafe {
-            let indices: Vec<u16> = mesh.indices.iter().map(move |idx| *idx as u16).collect();
-            let indices_len = indices.len();
-            let vertices = &mesh.vertices;
-            let vertices_len = vertices.len();
 
             // --------------------------------------------------------------------
 
