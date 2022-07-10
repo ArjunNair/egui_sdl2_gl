@@ -124,7 +124,11 @@ impl EguiStateHandler {
         input_to_egui(window, event, painter, self);
     }
 
-    pub fn process_output(&mut self, window: &sdl2::video::Window, egui_output: &egui::Output) {
+    pub fn process_output(
+        &mut self,
+        window: &sdl2::video::Window,
+        egui_output: &egui::PlatformOutput,
+    ) {
         if !egui_output.copied_text.is_empty() {
             let copied_text = egui_output.copied_text.clone();
             {

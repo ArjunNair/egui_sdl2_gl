@@ -54,7 +54,7 @@ fn main() {
     // Init egui stuff
     let (mut painter, mut egui_state) =
         egui_backend::with_sdl2(&window, ShaderVersion::Default, DpiScaling::Default);
-    let mut egui_ctx = egui::CtxRef::default();
+    //let mut egui_ctx = egui::Context::default();
     let mut event_pump: sdl2::EventPump = sdl_context.event_pump().unwrap();
     let mut srgba: Vec<Color32> = Vec::new();
 
@@ -83,8 +83,10 @@ fn main() {
     let mut quit = false;
 
     'running: loop {
+        let egui_ctx = egui::Context::default();
         egui_state.input.time = Some(start_time.elapsed().as_secs_f64());
-        egui_ctx.begin_frame(egui_state.input.take());
+        //egui_ctx.begin_frame(egui_state.input.take());
+        let inputs = egui_state.input.take();
 
         // An example of how OpenGL can be used to draw custom stuff with egui
         // overlaying it:
@@ -119,37 +121,38 @@ fn main() {
         // If we weren't updating the texture, this call wouldn't be required.
         painter.update_user_texture_data(chip8_tex_id, &srgba);
 
-        egui::Window::new("Egui with SDL2 and GL").show(&egui_ctx, |ui| {
-            // Image just needs a texture id reference, so we just pass it the texture id that was returned to us
-            // when we previously initialized the texture.
-            ui.add(Image::new(chip8_tex_id, vec2(PIC_WIDTH as f32, PIC_HEIGHT as f32)));
-            ui.separator();
-            ui.label("A simple sine wave plotted onto a GL texture then blitted to an egui managed Image.");
-            ui.label(" ");
-            ui.text_edit_multiline(&mut test_str);
-            ui.label(" ");
-            ui.add(egui::Slider::new(&mut amplitude, 0.0..=50.0).text("Amplitude"));
-            ui.label(" ");
-            if ui.button("Quit").clicked() {
-                quit = true;
-            }
+        //let (egui_output, paint_cmds)
+        let outputs = egui_ctx.run(inputs, |egui_ctx|{
+                egui::Window::new("Egui with SDL2 and GL").show(&egui_ctx, |ui| {
+                // Image just needs a texture id reference, so we just pass it the texture id that was returned to us
+                // when we previously initialized the texture.
+                ui.add(Image::new(chip8_tex_id, vec2(PIC_WIDTH as f32, PIC_HEIGHT as f32)));
+                ui.separator();
+                ui.label("A simple sine wave plotted onto a GL texture then blitted to an egui managed Image.");
+                ui.label(" ");
+                ui.text_edit_multiline(&mut test_str);
+                ui.label(" ");
+                ui.add(egui::Slider::new(&mut amplitude, 0.0..=50.0).text("Amplitude"));
+                ui.label(" ");
+                if ui.button("Quit").clicked() {
+                    quit = true;
+                }
+            });
         });
-
-        let (egui_output, paint_cmds) = egui_ctx.end_frame();
         // Process ouput
-        egui_state.process_output(&window, &egui_output);
+        egui_state.process_output(&window, &outputs.platform_output);
 
-        let paint_jobs = egui_ctx.tessellate(paint_cmds);
+        let paint_jobs = egui_ctx.tessellate(outputs.shapes);
 
         // Note: passing a bg_color to paint_jobs will clear any previously drawn stuff.
         // Use this only if egui is being used for all drawing and you aren't mixing your own Open GL
         // drawing calls with it.
         // Since we are custom drawing an OpenGL Triangle we don't need egui to clear the background.
-        painter.paint_jobs(None, paint_jobs, &egui_ctx.font_image());
+        painter.paint(None, paint_jobs, &outputs.textures_delta);
 
         window.gl_swap_window();
 
-        if !egui_output.needs_repaint {
+        if !outputs.needs_repaint {
             if let Some(event) = event_pump.wait_event_timeout(5) {
                 match event {
                     Event::Quit { .. } => break 'running,

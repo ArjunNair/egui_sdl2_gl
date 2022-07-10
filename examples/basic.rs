@@ -40,7 +40,7 @@ fn main() {
     // let shader_ver = ShaderVersion::Adaptive;
     let (mut painter, mut egui_state) =
         egui_backend::with_sdl2(&window, shader_ver, DpiScaling::Custom(2.0));
-    let mut egui_ctx = egui::CtxRef::default();
+    //let mut egui_ctx = egui::CtxRef::default();
     let mut event_pump = sdl_context.event_pump().unwrap();
 
     let mut test_str: String =
@@ -53,6 +53,8 @@ fn main() {
     let start_time = Instant::now();
 
     'running: loop {
+        let egui_ctx = egui::Context::default();
+
         if enable_vsync {
             window
                 .subsystem()
@@ -66,24 +68,25 @@ fn main() {
         }
 
         egui_state.input.time = Some(start_time.elapsed().as_secs_f64());
-        egui_ctx.begin_frame(egui_state.input.take());
+        let inputs = egui_state.input.take();
+        //egui_ctx.begin_frame(egui_state.input.take());
 
-        egui::CentralPanel::default().show(&egui_ctx, |ui| {
-            ui.label(" ");
-            ui.text_edit_multiline(&mut test_str);
-            ui.label(" ");
-            ui.add(egui::Slider::new(&mut slider, 0.0..=50.0).text("Slider"));
-            ui.label(" ");
-            ui.add(Checkbox::new(&mut enable_vsync, "Reduce CPU Usage?"));
-            ui.separator();
-            if ui.button("Quit?").clicked() {
-                quit = true;
-            }
+        let outputs = egui_ctx.run(inputs, |egui_ctx| {
+            egui::CentralPanel::default().show(&egui_ctx, |ui| {
+                ui.label(" ");
+                ui.text_edit_multiline(&mut test_str);
+                ui.label(" ");
+                ui.add(egui::Slider::new(&mut slider, 0.0..=50.0).text("Slider"));
+                ui.label(" ");
+                ui.add(Checkbox::new(&mut enable_vsync, "Reduce CPU Usage?"));
+                ui.separator();
+                if ui.button("Quit?").clicked() {
+                    quit = true;
+                }
+            });
         });
-
-        let (egui_output, paint_cmds) = egui_ctx.end_frame();
         // Process ouput
-        egui_state.process_output(&window, &egui_output);
+        egui_state.process_output(&window, &outputs.platform_output);
 
         // For default dpi scaling only, Update window when the size of resized window is very small (to avoid egui::CentralPanel distortions).
         // if egui_ctx.used_size() != painter.screen_rect.size() {
@@ -92,8 +95,7 @@ fn main() {
         //     let (w, h) = (_size.x as u32, _size.y as u32);
         //     window.set_size(w, h).unwrap();
         // }
-
-        let paint_jobs = egui_ctx.tessellate(paint_cmds);
+        let paint_jobs = egui_ctx.tessellate(outputs.shapes);
 
         // An example of how OpenGL can be used to draw custom stuff with egui
         // overlaying it:
@@ -104,7 +106,7 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
-        if !egui_output.needs_repaint {
+        if !outputs.needs_repaint {
             if let Some(event) = event_pump.wait_event_timeout(5) {
                 match event {
                     Event::Quit { .. } => break 'running,
@@ -115,7 +117,7 @@ fn main() {
                 }
             }
         } else {
-            painter.paint_jobs(None, paint_jobs, &egui_ctx.font_image());
+            painter.paint(None, paint_jobs, &outputs.textures_delta);
             window.gl_swap_window();
             for event in event_pump.poll_iter() {
                 match event {

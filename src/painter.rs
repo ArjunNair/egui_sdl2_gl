@@ -5,10 +5,11 @@ use core::mem;
 use core::ptr;
 use core::str;
 use egui::{
-    epaint::{Color32, FontImage, Mesh},
-    vec2, ClippedMesh, Pos2, Rect,
+    epaint::{Color32, Mesh, Primitive},
+    vec2, ClippedPrimitive, Pos2, Rect,
 };
 use gl::types::{GLchar, GLenum, GLint, GLsizeiptr, GLsync, GLuint};
+//use std::array;
 use std::ffi::CString;
 use std::os::raw::c_void;
 
@@ -229,7 +230,7 @@ pub struct Painter {
     egui_texture: GLuint,
     // Call fence for sdl vsync so the CPU won't heat up if there's no heavy activity.
     pub gl_sync_fence: GLsync,
-    egui_texture_version: Option<u64>,
+    //egui_texture_version: Option<u64>,
     user_textures: Vec<Option<UserTexture>>,
     pub pixels_per_point: f32,
     pub canvas_size: (u32, u32),
@@ -355,7 +356,7 @@ impl Painter {
                 egui_texture,
                 gl_sync_fence: gl::FenceSync(gl::SYNC_GPU_COMMANDS_COMPLETE, 0),
                 pixels_per_point,
-                egui_texture_version: None,
+                //egui_texture_version: None,
                 user_textures: Default::default(),
                 canvas_size: (width, height),
                 screen_rect,
@@ -432,44 +433,93 @@ impl Painter {
         }
     }
 
-    fn upload_egui_texture(&mut self, texture: &FontImage) {
-        if self.egui_texture_version == Some(texture.version) {
-            return; // No change
-        }
-
-        let mut pixels: Vec<u8> = Vec::with_capacity(texture.pixels.len() * 4);
-        for &alpha in &texture.pixels {
-            let srgba = Color32::from_white_alpha(alpha);
-            pixels.push(srgba[0]);
-            pixels.push(srgba[1]);
-            pixels.push(srgba[2]);
-            pixels.push(srgba[3]);
-        }
-
-        unsafe {
-            gl::BindTexture(gl::TEXTURE_2D, self.egui_texture);
-
-            let level = 0;
-            let internal_format = gl::RGBA;
-            let border = 0;
-            let src_format = gl::RGBA;
-            let src_type = gl::UNSIGNED_BYTE;
-            gl::TexImage2D(
-                gl::TEXTURE_2D,
-                level,
-                internal_format as i32,
-                texture.width as i32,
-                texture.height as i32,
-                border,
-                src_format,
-                src_type,
-                pixels.as_ptr() as *const c_void,
-            );
-
-            self.egui_texture_version = Some(texture.version);
+    pub unsafe fn free_texture(&mut self, tex_id: egui::TextureId) {
+        if let Some(texture_id) = self.get_texture(tex_id) {
+            gl::DeleteTextures(1, texture_id as _);
         }
     }
 
+    fn upload_texture_srgb(&mut self, pos: Option<[usize; 2]>, [w, h]: [usize; 2], data: &Vec<u8>) {
+        let level = 0;
+        let internal_format = gl::SRGB8_ALPHA8;
+        let border = 0;
+        let src_format = gl::RGBA;
+        let src_type = gl::UNSIGNED_BYTE;
+
+        unsafe {
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
+
+            // Differentiate between partial and full texture updates
+            if let Some([x, y]) = pos {
+                gl::TexSubImage2D(
+                    gl::TEXTURE_2D,
+                    level,
+                    x as _,
+                    y as _,
+                    w as _,
+                    h as _,
+                    src_format,
+                    src_type,
+                    data.as_ptr() as *const c_void,
+                );
+            } else {
+                gl::TexImage2D(
+                    gl::TEXTURE_2D,
+                    level,
+                    internal_format as i32,
+                    w as _,
+                    h as _,
+                    border,
+                    src_format,
+                    src_type,
+                    data.as_ptr() as *const c_void,
+                );
+            }
+        }
+    }
+    /*
+        fn upload_egui_texture(&mut self, texture: &Image) {
+            if self.egui_texture_version == Some(texture.version) {
+                return; // No change
+            }
+
+            let mut pixels: Vec<u8> = Vec::with_capacity(texture.pixels.len() * 4);
+            for &alpha in &texture.pixels {
+                let srgba = Color32::from_white_alpha(alpha);
+                pixels.push(srgba[0]);
+                pixels.push(srgba[1]);
+                pixels.push(srgba[2]);
+                pixels.push(srgba[3]);
+            }
+
+            unsafe {
+                gl::BindTexture(gl::TEXTURE_2D, self.egui_texture);
+
+                let level = 0;
+                let internal_format = gl::RGBA;
+                let border = 0;
+                let src_format = gl::RGBA;
+                let src_type = gl::UNSIGNED_BYTE;
+                gl::TexImage2D(
+                    gl::TEXTURE_2D,
+                    level,
+                    internal_format as i32,
+                    texture.width as i32,
+                    texture.height as i32,
+                    border,
+                    src_format,
+                    src_type,
+                    pixels.as_ptr() as *const c_void,
+                );
+
+                self.egui_texture_version = Some(texture.version);
+            }
+        }
+    */
     fn upload_user_textures(&mut self) {
         unsafe {
             for user_texture in self.user_textures.iter_mut().flatten() {
@@ -539,7 +589,7 @@ impl Painter {
 
     fn get_texture(&self, texture_id: egui::TextureId) -> Option<GLuint> {
         match texture_id {
-            egui::TextureId::Egui => Some(self.egui_texture),
+            egui::TextureId::Managed(_id) => Some(self.egui_texture),
             egui::TextureId::User(id) => {
                 let id = id as usize;
                 if id < self.user_textures.len() {
@@ -554,7 +604,7 @@ impl Painter {
 
     pub fn update_user_texture_data(&mut self, texture_id: egui::TextureId, _pixels: &[Color32]) {
         match texture_id {
-            egui::TextureId::Egui => {}
+            egui::TextureId::Managed(_id) => {}
             egui::TextureId::User(id) => {
                 let id = id as usize;
                 assert!(id < self.user_textures.len());
@@ -583,7 +633,7 @@ impl Painter {
         rgba8_pixels: Vec<u8>,
     ) {
         match texture_id {
-            egui::TextureId::Egui => {}
+            egui::TextureId::Managed(_id) => {}
             egui::TextureId::User(id) => {
                 let id = id as usize;
                 if id < self.user_textures.len() {
@@ -596,33 +646,12 @@ impl Painter {
         }
     }
 
-    pub fn paint_jobs(
-        &mut self,
-        bg_color: Option<Color32>,
-        meshes: Vec<ClippedMesh>,
-        egui_texture: &FontImage,
-    ) {
+    // Prepare GL for rendering.
+    fn prepare_painting(&mut self, canvas_width: i32, canvas_height: i32) {
         unsafe {
             gl::PixelStorei(gl::UNPACK_ROW_LENGTH, 0);
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 4);
-        }
 
-        self.upload_egui_texture(egui_texture);
-        self.upload_user_textures();
-
-        let (canvas_width, canvas_height) = self.canvas_size;
-        let pixels_per_point = self.pixels_per_point;
-        unsafe {
-            if let Some(color) = bg_color {
-                gl::ClearColor(
-                    color[0] as f32 / 255.0,
-                    color[1] as f32 / 255.0,
-                    color[2] as f32 / 255.0,
-                    color[3] as f32 / 255.0,
-                );
-
-                gl::Clear(gl::COLOR_BUFFER_BIT);
-            }
             //Let OpenGL know we are dealing with SRGB colors so that it
             //can do the blending correctly. Not setting the framebuffer
             //leads to darkened, oversaturated colors.
@@ -636,173 +665,256 @@ impl Painter {
             let u_screen_size = CString::new("u_screen_size").unwrap();
             let u_screen_size_ptr = u_screen_size.as_ptr();
             let u_screen_size_loc = gl::GetUniformLocation(self.program, u_screen_size_ptr);
-            let (x, y) = (self.screen_rect.width(), self.screen_rect.height());
-            gl::Uniform2f(u_screen_size_loc, x, y);
+            gl::Uniform2f(
+                u_screen_size_loc,
+                self.screen_rect.width(),
+                self.screen_rect.height(),
+            );
             let u_sampler = CString::new("u_sampler").unwrap();
             let u_sampler_ptr = u_sampler.as_ptr();
             let u_sampler_loc = gl::GetUniformLocation(self.program, u_sampler_ptr);
             gl::Uniform1i(u_sampler_loc, 0);
-            gl::Viewport(0, 0, canvas_width as i32, canvas_height as i32);
-            let screen_x = canvas_width as f32;
-            let screen_y = canvas_height as f32;
+            gl::Viewport(0, 0, canvas_width, canvas_height);
+        }
+    }
 
-            for ClippedMesh(clip_rect, mesh) in meshes {
-                if let Some(texture_id) = self.get_texture(mesh.texture_id) {
-                    gl::BindTexture(gl::TEXTURE_2D, texture_id);
-                    let clip_min_x = pixels_per_point * clip_rect.min.x;
-                    let clip_min_y = pixels_per_point * clip_rect.min.y;
-                    let clip_max_x = pixels_per_point * clip_rect.max.x;
-                    let clip_max_y = pixels_per_point * clip_rect.max.y;
-                    let clip_min_x = clip_min_x.clamp(0.0, x);
-                    let clip_min_y = clip_min_y.clamp(0.0, y);
-                    let clip_max_x = clip_max_x.clamp(clip_min_x, screen_x);
-                    let clip_max_y = clip_max_y.clamp(clip_min_y, screen_y);
-                    let clip_min_x = clip_min_x.round() as i32;
-                    let clip_min_y = clip_min_y.round() as i32;
-                    let clip_max_x = clip_max_x.round() as i32;
-                    let clip_max_y = clip_max_y.round() as i32;
+    pub unsafe fn set_texture(
+        &mut self,
+        tex_id: egui::TextureId,
+        delta: &egui::epaint::ImageDelta,
+    ) {
+        if let Some(texture_id) = self.get_texture(tex_id) {
+            gl::BindTexture(gl::TEXTURE_2D, texture_id);
+        }
+        match &delta.image {
+            egui::ImageData::Color(image) => {
+                // There should be a better way to transform Vec<Color32> to Vec<u8>...
+                let mut pixels: Vec<u8> = Vec::with_capacity(image.pixels.len() * 4);
+                for &alpha in &image.pixels {
+                    let srgba = alpha.to_array();
+                    pixels.push(srgba[0]);
+                    pixels.push(srgba[1]);
+                    pixels.push(srgba[2]);
+                    pixels.push(srgba[3]);
+                }
 
-                    //scissor Y coordinate is from the bottom
-                    gl::Scissor(
-                        clip_min_x,
-                        canvas_height as i32 - clip_max_y,
-                        clip_max_x - clip_min_x,
-                        clip_max_y - clip_min_y,
-                    );
+                self.upload_texture_srgb(delta.pos, image.size, &pixels)
+            }
 
-                    self.paint_mesh(&mesh);
+            egui::ImageData::Font(image) => {
+                let data: Vec<u8> = image.srgba_pixels(1.0).flat_map(|a| a.to_array()).collect();
+                self.upload_texture_srgb(delta.pos, image.size, &data);
+            }
+        }
+    }
+    // Main method invoked by client to paint meshes.
+    pub fn paint(
+        &mut self,
+        bg_color: Option<Color32>,
+        meshes: Vec<ClippedPrimitive>,
+        //egui_texture: &FontImage,
+        textures_delta: &egui::TexturesDelta,
+    ) {
+        self.upload_user_textures();
+
+        let (canvas_width, canvas_height) = self.canvas_size;
+
+        unsafe {
+            if let Some(color) = bg_color {
+                gl::ClearColor(
+                    color[0] as f32 / 255.0,
+                    color[1] as f32 / 255.0,
+                    color[2] as f32 / 255.0,
+                    color[3] as f32 / 255.0,
+                );
+
+                gl::Clear(gl::COLOR_BUFFER_BIT);
+            }
+
+            self.prepare_painting(canvas_width as i32, canvas_height as i32);
+
+            for (id, image_delta) in &textures_delta.set {
+                self.set_texture(*id, image_delta);
+            }
+
+            for ClippedPrimitive {
+                clip_rect,
+                primitive,
+            } in meshes
+            {
+                match primitive {
+                    Primitive::Mesh(mesh) => {
+                        self.paint_mesh(&clip_rect, &mesh);
+                    }
+                    Primitive::Callback(_) => {
+                        panic!("Custom callbacks not supported.");
+                    }
                 }
             }
 
             gl::Disable(gl::SCISSOR_TEST);
             gl::Disable(gl::FRAMEBUFFER_SRGB);
             gl::Disable(gl::BLEND);
+
+            for &id in &textures_delta.free {
+                self.free_texture(id);
+            }
         }
     }
 
-    fn paint_mesh(&self, mesh: &Mesh) {
+    fn paint_mesh(&self, clip_rect: &Rect, mesh: &Mesh) {
         debug_assert!(mesh.is_valid());
         unsafe {
-            let indices: Vec<u16> = mesh.indices.iter().map(move |idx| *idx as u16).collect();
-            let indices_len = indices.len();
-            let vertices = &mesh.vertices;
-            let vertices_len = vertices.len();
+            let (canvas_width, canvas_height) = self.canvas_size;
+            let pixels_per_point = self.pixels_per_point;
+            let screen_x = canvas_width as f32;
+            let screen_y = canvas_height as f32;
 
-            // --------------------------------------------------------------------
+            if let Some(texture_id) = self.get_texture(mesh.texture_id) {
+                let clip_min_x = pixels_per_point * clip_rect.min.x;
+                let clip_min_y = pixels_per_point * clip_rect.min.y;
+                let clip_max_x = pixels_per_point * clip_rect.max.x;
+                let clip_max_y = pixels_per_point * clip_rect.max.y;
+                let clip_min_x = clip_min_x.clamp(0.0, self.screen_rect.width());
+                let clip_min_y = clip_min_y.clamp(0.0, self.screen_rect.height());
+                let clip_max_x = clip_max_x.clamp(clip_min_x, screen_x);
+                let clip_max_y = clip_max_y.clamp(clip_min_y, screen_y);
+                let clip_min_x = clip_min_x.round() as i32;
+                let clip_min_y = clip_min_y.round() as i32;
+                let clip_max_x = clip_max_x.round() as i32;
+                let clip_max_y = clip_max_y.round() as i32;
 
-            gl::BindVertexArray(self.vertex_array);
-            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.index_buffer);
-            gl::BufferData(
-                gl::ELEMENT_ARRAY_BUFFER,
-                (indices_len * mem::size_of::<u16>()) as GLsizeiptr,
-                //mem::transmute(&indices.as_ptr()),
-                indices.as_ptr() as *const gl::types::GLvoid,
-                gl::STREAM_DRAW,
-            );
+                //scissor Y coordinate is from the bottom
+                gl::Scissor(
+                    clip_min_x,
+                    canvas_height as i32 - clip_max_y,
+                    clip_max_x - clip_min_x,
+                    clip_max_y - clip_min_y,
+                );
 
-            // --------------------------------------------------------------------
+                gl::BindTexture(gl::TEXTURE_2D, texture_id);
 
-            let mut positions: Vec<f32> = Vec::with_capacity(2 * vertices_len);
-            let mut tex_coords: Vec<f32> = Vec::with_capacity(2 * vertices_len);
-            {
-                for v in &mesh.vertices {
-                    positions.push(v.pos.x);
-                    positions.push(v.pos.y);
-                    tex_coords.push(v.uv.x);
-                    tex_coords.push(v.uv.y);
+                let indices: Vec<u16> = mesh.indices.iter().map(move |idx| *idx as u16).collect();
+                let indices_len = indices.len();
+                let vertices = &mesh.vertices;
+                let vertices_len = vertices.len();
+
+                // --------------------------------------------------------------------
+
+                gl::BindVertexArray(self.vertex_array);
+                gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.index_buffer);
+                gl::BufferData(
+                    gl::ELEMENT_ARRAY_BUFFER,
+                    (indices_len * mem::size_of::<u16>()) as GLsizeiptr,
+                    //mem::transmute(&indices.as_ptr()),
+                    indices.as_ptr() as *const gl::types::GLvoid,
+                    gl::STREAM_DRAW,
+                );
+
+                // --------------------------------------------------------------------
+
+                let mut positions: Vec<f32> = Vec::with_capacity(2 * vertices_len);
+                let mut tex_coords: Vec<f32> = Vec::with_capacity(2 * vertices_len);
+                {
+                    for v in &mesh.vertices {
+                        positions.push(v.pos.x);
+                        positions.push(v.pos.y);
+                        tex_coords.push(v.uv.x);
+                        tex_coords.push(v.uv.y);
+                    }
                 }
-            }
 
-            // --------------------------------------------------------------------
+                // --------------------------------------------------------------------
 
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.pos_buffer);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (positions.len() * mem::size_of::<f32>()) as GLsizeiptr,
-                //mem::transmute(&positions.as_ptr()),
-                positions.as_ptr() as *const gl::types::GLvoid,
-                gl::STREAM_DRAW,
-            );
+                gl::BindBuffer(gl::ARRAY_BUFFER, self.pos_buffer);
+                gl::BufferData(
+                    gl::ARRAY_BUFFER,
+                    (positions.len() * mem::size_of::<f32>()) as GLsizeiptr,
+                    //mem::transmute(&positions.as_ptr()),
+                    positions.as_ptr() as *const gl::types::GLvoid,
+                    gl::STREAM_DRAW,
+                );
 
-            let a_pos = CString::new("a_pos").unwrap();
-            let a_pos_ptr = a_pos.as_ptr();
-            let a_pos_loc = gl::GetAttribLocation(self.program, a_pos_ptr);
-            assert!(a_pos_loc >= 0);
-            let a_pos_loc = a_pos_loc as u32;
+                let a_pos = CString::new("a_pos").unwrap();
+                let a_pos_ptr = a_pos.as_ptr();
+                let a_pos_loc = gl::GetAttribLocation(self.program, a_pos_ptr);
+                assert!(a_pos_loc >= 0);
+                let a_pos_loc = a_pos_loc as u32;
 
-            let stride = 0;
-            gl::VertexAttribPointer(a_pos_loc, 2, gl::FLOAT, gl::FALSE, stride, ptr::null());
-            gl::EnableVertexAttribArray(a_pos_loc);
+                let stride = 0;
+                gl::VertexAttribPointer(a_pos_loc, 2, gl::FLOAT, gl::FALSE, stride, ptr::null());
+                gl::EnableVertexAttribArray(a_pos_loc);
 
-            // --------------------------------------------------------------------
+                // --------------------------------------------------------------------
 
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.tc_buffer);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (tex_coords.len() * mem::size_of::<f32>()) as GLsizeiptr,
-                //mem::transmute(&tex_coords.as_ptr()),
-                tex_coords.as_ptr() as *const gl::types::GLvoid,
-                gl::STREAM_DRAW,
-            );
+                gl::BindBuffer(gl::ARRAY_BUFFER, self.tc_buffer);
+                gl::BufferData(
+                    gl::ARRAY_BUFFER,
+                    (tex_coords.len() * mem::size_of::<f32>()) as GLsizeiptr,
+                    //mem::transmute(&tex_coords.as_ptr()),
+                    tex_coords.as_ptr() as *const gl::types::GLvoid,
+                    gl::STREAM_DRAW,
+                );
 
-            let a_tc = CString::new("a_tc").unwrap();
-            let a_tc_ptr = a_tc.as_ptr();
-            let a_tc_loc = gl::GetAttribLocation(self.program, a_tc_ptr);
-            assert!(a_tc_loc >= 0);
-            let a_tc_loc = a_tc_loc as u32;
+                let a_tc = CString::new("a_tc").unwrap();
+                let a_tc_ptr = a_tc.as_ptr();
+                let a_tc_loc = gl::GetAttribLocation(self.program, a_tc_ptr);
+                assert!(a_tc_loc >= 0);
+                let a_tc_loc = a_tc_loc as u32;
 
-            let stride = 0;
-            gl::VertexAttribPointer(a_tc_loc, 2, gl::FLOAT, gl::FALSE, stride, ptr::null());
-            gl::EnableVertexAttribArray(a_tc_loc);
+                let stride = 0;
+                gl::VertexAttribPointer(a_tc_loc, 2, gl::FLOAT, gl::FALSE, stride, ptr::null());
+                gl::EnableVertexAttribArray(a_tc_loc);
 
-            // --------------------------------------------------------------------
+                // --------------------------------------------------------------------
 
-            let mut colors: Vec<u8> = Vec::with_capacity(4 * vertices_len);
-            {
-                for v in vertices {
-                    colors.push(v.color[0]);
-                    colors.push(v.color[1]);
-                    colors.push(v.color[2]);
-                    colors.push(v.color[3]);
+                let mut colors: Vec<u8> = Vec::with_capacity(4 * vertices_len);
+                {
+                    for v in vertices {
+                        colors.push(v.color[0]);
+                        colors.push(v.color[1]);
+                        colors.push(v.color[2]);
+                        colors.push(v.color[3]);
+                    }
                 }
+
+                gl::BindBuffer(gl::ARRAY_BUFFER, self.color_buffer);
+                gl::BufferData(
+                    gl::ARRAY_BUFFER,
+                    (colors.len() * mem::size_of::<u8>()) as GLsizeiptr,
+                    //mem::transmute(&colors.as_ptr()),
+                    colors.as_ptr() as *const gl::types::GLvoid,
+                    gl::STREAM_DRAW,
+                );
+
+                let a_srgba = CString::new("a_srgba").unwrap();
+                let a_srgba_ptr = a_srgba.as_ptr();
+                let a_srgba_loc = gl::GetAttribLocation(self.program, a_srgba_ptr);
+                assert!(a_srgba_loc >= 0);
+                let a_srgba_loc = a_srgba_loc as u32;
+
+                let stride = 0;
+                gl::VertexAttribPointer(
+                    a_srgba_loc,
+                    4,
+                    gl::UNSIGNED_BYTE,
+                    gl::FALSE,
+                    stride,
+                    ptr::null(),
+                );
+                gl::EnableVertexAttribArray(a_srgba_loc);
+
+                // --------------------------------------------------------------------
+                gl::DrawElements(
+                    gl::TRIANGLES,
+                    indices_len as i32,
+                    gl::UNSIGNED_SHORT,
+                    ptr::null(),
+                );
+                gl::DisableVertexAttribArray(a_pos_loc);
+                gl::DisableVertexAttribArray(a_tc_loc);
+                gl::DisableVertexAttribArray(a_srgba_loc);
             }
-
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.color_buffer);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (colors.len() * mem::size_of::<u8>()) as GLsizeiptr,
-                //mem::transmute(&colors.as_ptr()),
-                colors.as_ptr() as *const gl::types::GLvoid,
-                gl::STREAM_DRAW,
-            );
-
-            let a_srgba = CString::new("a_srgba").unwrap();
-            let a_srgba_ptr = a_srgba.as_ptr();
-            let a_srgba_loc = gl::GetAttribLocation(self.program, a_srgba_ptr);
-            assert!(a_srgba_loc >= 0);
-            let a_srgba_loc = a_srgba_loc as u32;
-
-            let stride = 0;
-            gl::VertexAttribPointer(
-                a_srgba_loc,
-                4,
-                gl::UNSIGNED_BYTE,
-                gl::FALSE,
-                stride,
-                ptr::null(),
-            );
-            gl::EnableVertexAttribArray(a_srgba_loc);
-
-            // --------------------------------------------------------------------
-            gl::DrawElements(
-                gl::TRIANGLES,
-                indices_len as i32,
-                gl::UNSIGNED_SHORT,
-                ptr::null(),
-            );
-            gl::DisableVertexAttribArray(a_pos_loc);
-            gl::DisableVertexAttribArray(a_tc_loc);
-            gl::DisableVertexAttribArray(a_srgba_loc);
         }
     }
 
