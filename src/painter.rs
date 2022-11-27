@@ -4,10 +4,8 @@ use crate::ShaderVersion;
 use core::mem;
 use core::ptr;
 use core::str;
-use egui::{
-    epaint::{Color32, Mesh, Primitive},
-    vec2, ClippedPrimitive, Pos2, Rect,
-};
+use std::collections::HashMap;
+use egui::{epaint::{Color32, Mesh, Primitive}, vec2, ClippedPrimitive, Pos2, Rect, TextureId};
 use gl::types::{GLchar, GLenum, GLint, GLsizeiptr, GLsync, GLuint};
 //use std::array;
 use std::ffi::CString;
@@ -227,7 +225,7 @@ pub struct Painter {
     pos_buffer: GLuint,
     tc_buffer: GLuint,
     color_buffer: GLuint,
-    egui_texture: GLuint,
+    egui_textures: HashMap<u64, GLuint>,
     // Call fence for sdl vsync so the CPU won't heat up if there's no heavy activity.
     pub gl_sync_fence: GLsync,
     //egui_texture_version: Option<u64>,
@@ -305,17 +303,30 @@ pub fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
     }
 }
 
-impl Painter {
-    pub fn new(window: &sdl2::video::Window, scale: f32, shader_ver: ShaderVersion) -> Painter {
-        unsafe {
-            let mut egui_texture = 0;
-            gl::load_with(|name| window.subsystem().gl_get_proc_address(name) as *const _);
-            gl::GenTextures(1, &mut egui_texture);
-            gl::BindTexture(gl::TEXTURE_2D, egui_texture);
+fn create_opengl_texture() -> Result<GLuint, ()> {
+    let mut texture = 0;
+    unsafe {
+        let _ = gl::GetError();
+        gl::GenTextures(1, &mut texture);
+
+        if gl::GetError() == gl::NO_ERROR {
+            gl::BindTexture(gl::TEXTURE_2D, texture);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+            Ok(texture)
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl Painter {
+    pub fn new(window: &sdl2::video::Window, scale: f32, shader_ver: ShaderVersion) -> Painter {
+        unsafe {
+            gl::load_with(|name| window.subsystem().gl_get_proc_address(name) as *const _);
+            let egui_texture = create_opengl_texture().unwrap();
             let (vs_src, fs_src) = if let ShaderVersion::Default = shader_ver {
                 (VS_SRC_150, FS_SRC_150)
             } else {
@@ -353,7 +364,11 @@ impl Painter {
                 pos_buffer,
                 tc_buffer,
                 color_buffer,
-                egui_texture,
+                egui_textures: {
+                    let mut map = HashMap::new();
+                    map.insert(0, egui_texture);
+                    map
+                },
                 gl_sync_fence: gl::FenceSync(gl::SYNC_GPU_COMMANDS_COMPLETE, 0),
                 pixels_per_point,
                 //egui_texture_version: None,
@@ -481,45 +496,7 @@ impl Painter {
             }
         }
     }
-    /*
-        fn upload_egui_texture(&mut self, texture: &Image) {
-            if self.egui_texture_version == Some(texture.version) {
-                return; // No change
-            }
 
-            let mut pixels: Vec<u8> = Vec::with_capacity(texture.pixels.len() * 4);
-            for &alpha in &texture.pixels {
-                let srgba = Color32::from_white_alpha(alpha);
-                pixels.push(srgba[0]);
-                pixels.push(srgba[1]);
-                pixels.push(srgba[2]);
-                pixels.push(srgba[3]);
-            }
-
-            unsafe {
-                gl::BindTexture(gl::TEXTURE_2D, self.egui_texture);
-
-                let level = 0;
-                let internal_format = gl::RGBA;
-                let border = 0;
-                let src_format = gl::RGBA;
-                let src_type = gl::UNSIGNED_BYTE;
-                gl::TexImage2D(
-                    gl::TEXTURE_2D,
-                    level,
-                    internal_format as i32,
-                    texture.width as i32,
-                    texture.height as i32,
-                    border,
-                    src_format,
-                    src_type,
-                    pixels.as_ptr() as *const c_void,
-                );
-
-                self.egui_texture_version = Some(texture.version);
-            }
-        }
-    */
     fn upload_user_textures(&mut self) {
         unsafe {
             for user_texture in self.user_textures.iter_mut().flatten() {
@@ -589,7 +566,9 @@ impl Painter {
 
     fn get_texture(&self, texture_id: egui::TextureId) -> Option<GLuint> {
         match texture_id {
-            egui::TextureId::Managed(_id) => Some(self.egui_texture),
+            egui::TextureId::Managed(id) => {
+                self.egui_textures.get(&id).map(|x| x.clone())
+            },
             egui::TextureId::User(id) => {
                 let id = id as usize;
                 if id < self.user_textures.len() {
@@ -685,7 +664,22 @@ impl Painter {
     ) {
         if let Some(texture_id) = self.get_texture(tex_id) {
             gl::BindTexture(gl::TEXTURE_2D, texture_id);
+        } else {
+            // Create such a texture
+            // Bind it
+            match tex_id {
+                TextureId::Managed(id) => {
+                    let new_texture = create_opengl_texture().unwrap();
+                    self.egui_textures.insert(id, new_texture);
+                    gl::BindTexture(gl::TEXTURE_2D, new_texture);
+                }
+                TextureId::User(_id) => {
+                    println!("egui_sdl2_gl warning - Painter::set_texture - handling of TextureId::User textures was not fully implemented (TODO!)");
+                    return;
+                }
+            }
         }
+
         match &delta.image {
             egui::ImageData::Color(image) => {
                 // There should be a better way to transform Vec<Color32> to Vec<u8>...
@@ -932,7 +926,11 @@ impl Painter {
             gl::DeleteBuffers(1, &self.tc_buffer);
             gl::DeleteBuffers(1, &self.color_buffer);
             gl::DeleteBuffers(1, &self.index_buffer);
-            gl::DeleteTextures(1, &self.egui_texture);
+
+            for (_name, texture) in self.egui_textures.iter() {
+                gl::DeleteTextures(1, texture);
+            }
+
             gl::DeleteVertexArrays(1, &self.vertex_array);
         }
     }
