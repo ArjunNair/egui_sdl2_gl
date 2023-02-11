@@ -1,3 +1,5 @@
+use std::ffi::CString;
+
 use gl::{types::{GLchar, GLint, GLuint}, INFO_LOG_LENGTH, LINK_STATUS};
 
 pub unsafe fn get_parameter_string(parameter: u32) -> String {
@@ -90,3 +92,60 @@ pub unsafe fn get_program_info_log(program: GLuint) -> String {
         String::from("")
     }
 }
+
+pub unsafe fn get_uniform_location(
+    program: GLuint,
+    name: &str,
+) -> Option<GLuint> {
+    let name = CString::new(name).unwrap();
+    let uniform_location =
+        gl::GetUniformLocation(program, name.as_ptr() as *const GLchar);
+    if uniform_location < 0 {
+        None
+    } else {
+        Some(uniform_location as GLuint)
+    }
+}
+
+pub unsafe fn create_buffer() -> Result<GLuint, String> {
+    let mut buffer = 0;
+    gl::GenBuffers(1, &mut buffer);
+    Ok(buffer)
+}
+
+pub unsafe fn get_attrib_location(program: GLuint, name: &str) -> Option<u32> {
+    let name = CString::new(name).unwrap();
+    let attrib_location =
+        gl::GetAttribLocation(program, name.as_ptr() as *const GLchar);
+    if attrib_location < 0 {
+        None
+    } else {
+        Some(attrib_location as u32)
+    }
+}
+
+pub unsafe fn create_vertex_array() -> Result<GLuint, String> {
+    let mut vertex_array = 0;
+    gl::GenVertexArrays(1, &mut vertex_array);
+    Ok(vertex_array)
+}
+
+pub unsafe fn vertex_attrib_pointer_f32(
+    index: u32,
+    size: i32,
+    data_type: u32,
+    normalized: bool,
+    stride: i32,
+    offset: i32,
+) {
+    gl::VertexAttribPointer(
+        index,
+        size,
+        data_type,
+        normalized as u8,
+        stride,
+        offset as *const std::ffi::c_void,
+    );
+}
+
+

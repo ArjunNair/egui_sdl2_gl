@@ -8,10 +8,11 @@ use egui::{
     epaint::{Mesh, PaintCallbackInfo, Primitive, Vertex},
 };
 use gl::types::{GLchar, GLuint, GLint};
+use memoffset::offset_of;
 // use glow::HasContext as _;
 // use memoffset::offset_of;
 
-use crate::{check_for_gl_error, gl_utils::{get_parameter_string, get_parameter_i32}};
+use crate::{check_for_gl_error, gl_utils::{get_parameter_string, get_parameter_i32, get_uniform_location, create_buffer, get_attrib_location}};
 use crate::misc_util::{compile_shader, link_program};
 use crate::shader_version::ShaderVersion;
 use crate::vao;
@@ -155,37 +156,36 @@ impl Painter {
                 ),
             )?;
             let frag = compile_shader(
-                &gl,
-                glow::FRAGMENT_SHADER,
+                gl::FRAGMENT_SHADER,
                 &format!(
                     "{}\n#define NEW_SHADER_INTERFACE {}\n#define SRGB_TEXTURES {}\n{}\n{}",
                     shader_version_declaration,
                     shader_version.is_new_shader_interface() as i32,
-                    srgb_textures as i32,
+                    1, // on "real" OpenGL, we always have sRGB textures - I hope
                     shader_prefix,
                     FRAG_SRC
                 ),
             )?;
-            let program = link_program(&gl, [vert, frag].iter())?;
-            gl.detach_shader(program, vert);
-            gl.detach_shader(program, frag);
-            gl.delete_shader(vert);
-            gl.delete_shader(frag);
-            let u_screen_size = gl.get_uniform_location(program, "u_screen_size").unwrap();
-            let u_sampler = gl.get_uniform_location(program, "u_sampler").unwrap();
+            let program = link_program([vert, frag].iter().map(|sh| *sh))?;
+            gl::DetachShader(program, vert);
+            gl::DetachShader(program, frag);
+            gl::DeleteShader(vert);
+            gl::DeleteShader(frag);
+            let u_screen_size = get_uniform_location(program, "u_screen_size").unwrap();
+            let u_sampler = get_uniform_location(program, "u_sampler").unwrap();
 
-            let vbo = gl.create_buffer()?;
+            let vbo = create_buffer()?;
 
-            let a_pos_loc = gl.get_attrib_location(program, "a_pos").unwrap();
-            let a_tc_loc = gl.get_attrib_location(program, "a_tc").unwrap();
-            let a_srgba_loc = gl.get_attrib_location(program, "a_srgba").unwrap();
+            let a_pos_loc = get_attrib_location(program, "a_pos").unwrap();
+            let a_tc_loc = get_attrib_location(program, "a_tc").unwrap();
+            let a_srgba_loc = get_attrib_location(program, "a_srgba").unwrap();
 
             let stride = std::mem::size_of::<Vertex>() as i32;
             let buffer_infos = vec![
                 vao::BufferInfo {
                     location: a_pos_loc,
                     vector_size: 2,
-                    data_type: glow::FLOAT,
+                    data_type: gl::FLOAT,
                     normalized: false,
                     stride,
                     offset: offset_of!(Vertex, pos) as i32,
@@ -193,7 +193,7 @@ impl Painter {
                 vao::BufferInfo {
                     location: a_tc_loc,
                     vector_size: 2,
-                    data_type: glow::FLOAT,
+                    data_type: gl::FLOAT,
                     normalized: false,
                     stride,
                     offset: offset_of!(Vertex, uv) as i32,
@@ -201,20 +201,19 @@ impl Painter {
                 vao::BufferInfo {
                     location: a_srgba_loc,
                     vector_size: 4,
-                    data_type: glow::UNSIGNED_BYTE,
+                    data_type: gl::UNSIGNED_BYTE,
                     normalized: false,
                     stride,
                     offset: offset_of!(Vertex, color) as i32,
                 },
             ];
-            let vao = crate::vao::VertexArrayObject::new(&gl, vbo, buffer_infos);
+            let vao = crate::vao::VertexArrayObject::new(vbo, buffer_infos);
 
             let element_array_buffer = gl.create_buffer()?;
 
             crate::check_for_gl_error_even_in_release!(&gl, "after Painter::new");
 
             Ok(Painter {
-                gl,
                 max_texture_side,
                 program,
                 u_screen_size,
