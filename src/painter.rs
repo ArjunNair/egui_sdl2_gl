@@ -7,7 +7,7 @@ use egui::{
     emath::Rect,
     epaint::{Mesh, PaintCallbackInfo, Primitive, Vertex},
 };
-use gl::types::{GLuint, GLchar};
+use gl::types::{GLchar, GLuint, GLint};
 // use glow::HasContext as _;
 // use memoffset::offset_of;
 
@@ -43,16 +43,15 @@ impl TextureFilterExt for egui::TextureFilter {
 /// objects have been properly deleted and are not leaked.
 pub struct Painter {
     // gl: Arc<glow::Context>,
-
     max_texture_side: usize,
 
-    program: GLuint, //glow::Program,
+    program: GLuint,       //glow::Program,
     u_screen_size: GLuint, //glow::UniformLocation,
-    u_sampler: GLuint, // glow::UniformLocation,
+    u_sampler: GLuint,     // glow::UniformLocation,
     is_webgl_1: bool,
     vao: crate::vao::VertexArrayObject,
     srgb_textures: bool,
-    vbo: GLuint, // glow::Buffer,
+    vbo: GLuint,                  // glow::Buffer,
     element_array_buffer: GLuint, // glow::Buffer,
 
     textures: HashMap<egui::TextureId, GLuint>, // glow::Texture>,
@@ -118,13 +117,17 @@ impl Painter {
         }
 
         #[cfg(not(target_arch = "wasm32"))]
-        if gl.version().major < 2 {
-            // this checks on desktop that we are not using opengl 1.1 microsoft sw rendering context.
-            // ShaderVersion::get fn will segfault due to SHADING_LANGUAGE_VERSION (added in gl2.0)
-            return Err("egui_glow requires opengl 2.0+. ".to_owned());
+        {
+            let mut major: GLint = 0;
+            unsafe { gl::GetIntegerv(gl::MAJOR_VERSION, &mut major) };
+            if major < 2 {
+                // this checks on desktop that we are not using opengl 1.1 microsoft sw rendering context.
+                // ShaderVersion::get fn will segfault due to SHADING_LANGUAGE_VERSION (added in gl2.0)
+                return Err("egui_gl requires opengl 2.0+. ".to_owned());
+            }
         }
 
-        let max_texture_side = unsafe { gl.get_parameter_i32(glow::MAX_TEXTURE_SIZE) } as usize;
+        let max_texture_side = unsafe { get_parameter_i32(gl::MAX_TEXTURE_SIZE) } as usize;
         let shader_version = shader_version.unwrap_or_else(|| ShaderVersion::get(&gl));
         let is_webgl_1 = shader_version == ShaderVersion::Es100;
         let shader_version_declaration = shader_version.version_declaration();
@@ -746,18 +749,4 @@ fn set_clip_rect(
             clip_max_y - clip_min_y,
         );
     }
-}
-
-unsafe fn get_parameter_string(parameter: u32) -> String {
-    let raw_ptr = gl::GetString(parameter);
-    if raw_ptr.is_null() {
-        panic!(
-            "Get parameter string 0x{:X} failed. Maybe your GL context version is too outdated.",
-            parameter
-        )
-    }
-    std::ffi::CStr::from_ptr(raw_ptr as *const GLchar)
-        .to_str()
-        .unwrap()
-        .to_owned()
 }

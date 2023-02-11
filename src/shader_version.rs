@@ -2,6 +2,8 @@
 
 use std::convert::TryInto;
 
+use crate::gl_utils::get_parameter_string;
+
 /// Helper for parsing and interpreting the OpenGL shader version.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[allow(dead_code)]
@@ -19,10 +21,9 @@ pub enum ShaderVersion {
 }
 
 impl ShaderVersion {
-    pub fn get(gl: &glow::Context) -> Self {
-        use glow::HasContext as _;
+    pub fn get() -> Self {
         let shading_lang_string =
-            unsafe { gl.get_parameter_string(glow::SHADING_LANGUAGE_VERSION) };
+            unsafe { get_parameter_string(gl::SHADING_LANGUAGE_VERSION) };
         let shader_version = Self::parse(&shading_lang_string);
         tracing::debug!(
             "Shader version: {:?} ({:?}).",
