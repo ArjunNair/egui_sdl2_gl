@@ -40,7 +40,7 @@ fn main() {
     // let shader_ver = ShaderVersion::Adaptive;
     let (mut painter, mut egui_state) =
         egui_backend::with_sdl2(&window, shader_ver, DpiScaling::Custom(2.0));
-    let mut egui_ctx = egui::CtxRef::default();
+    let mut egui_ctx = egui::Context::default();
     let mut event_pump = sdl_context.event_pump().unwrap();
 
     let mut test_str: String =

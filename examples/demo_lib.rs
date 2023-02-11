@@ -58,7 +58,7 @@ fn main() {
     let (mut painter, mut egui_state) =
         egui_backend::with_sdl2(&window, ShaderVersion::Default, DpiScaling::Custom(1.25));
     let mut app = egui_demo_lib::WrapApp::default();
-    let mut egui_ctx = egui::CtxRef::default();
+    let mut egui_ctx = egui::Context::default();
     let mut event_pump = sdl_context.event_pump().unwrap();
     let start_time = Instant::now();
     let repaint_signal = Arc::new(Signal::default());
