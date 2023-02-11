@@ -11,7 +11,7 @@ use gl::types::{GLchar, GLuint, GLint};
 // use glow::HasContext as _;
 // use memoffset::offset_of;
 
-use crate::check_for_gl_error;
+use crate::{check_for_gl_error, gl_utils::{get_parameter_string, get_parameter_i32}};
 use crate::misc_util::{compile_shader, link_program};
 use crate::shader_version::ShaderVersion;
 use crate::vao;
@@ -128,24 +128,24 @@ impl Painter {
         }
 
         let max_texture_side = unsafe { get_parameter_i32(gl::MAX_TEXTURE_SIZE) } as usize;
-        let shader_version = shader_version.unwrap_or_else(|| ShaderVersion::get(&gl));
+        let shader_version = shader_version.unwrap_or_else(|| ShaderVersion::get());
         let is_webgl_1 = shader_version == ShaderVersion::Es100;
         let shader_version_declaration = shader_version.version_declaration();
         tracing::debug!("Shader header: {:?}.", shader_version_declaration);
 
-        let supported_extensions = gl.supported_extensions();
-        tracing::trace!("OpenGL extensions: {supported_extensions:?}");
-        let srgb_textures = shader_version == ShaderVersion::Es300 // WebGL2 always support sRGB
-            || supported_extensions.iter().any(|extension| {
-                // EXT_sRGB, GL_ARB_framebuffer_sRGB, GL_EXT_sRGB, GL_EXT_texture_sRGB_decode, …
-                extension.contains("sRGB")
-            });
-        tracing::debug!("SRGB texture Support: {:?}", srgb_textures);
+        // TODO: port the egui_glow code querying the extensions, though it's somewhat involved
+        // let supported_extensions = gl.supported_extensions();
+        // tracing::trace!("OpenGL extensions: {supported_extensions:?}");
+        // let srgb_textures = shader_version == ShaderVersion::Es300 // WebGL2 always support sRGB
+        //     || supported_extensions.iter().any(|extension| {
+        //         // EXT_sRGB, GL_ARB_framebuffer_sRGB, GL_EXT_sRGB, GL_EXT_texture_sRGB_decode, …
+        //         extension.contains("sRGB")
+        //     });
+        // tracing::debug!("SRGB texture Support: {:?}", srgb_textures);
 
         unsafe {
             let vert = compile_shader(
-                &gl,
-                glow::VERTEX_SHADER,
+                gl::VERTEX_SHADER,
                 &format!(
                     "{}\n#define NEW_SHADER_INTERFACE {}\n{}\n{}",
                     shader_version_declaration,

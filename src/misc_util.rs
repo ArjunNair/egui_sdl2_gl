@@ -1,40 +1,40 @@
 #![allow(unsafe_code)]
 
-use glow::HasContext as _;
+use gl::types::GLuint;
+
+use crate::gl_utils::{create_shader, shader_source, get_shader_compile_status, get_shader_info_log, create_program, attach_shader, get_program_link_status, get_program_info_log};
 
 pub(crate) unsafe fn compile_shader(
-    gl: &glow::Context,
     shader_type: u32,
     source: &str,
-) -> Result<glow::Shader, String> {
-    let shader = gl.create_shader(shader_type)?;
+) -> Result<GLuint, String> {
+    let shader = create_shader(shader_type)?;
 
-    gl.shader_source(shader, source);
+    shader_source(shader, source);
 
-    gl.compile_shader(shader);
+    gl::CompileShader(shader);
 
-    if gl.get_shader_compile_status(shader) {
+    if get_shader_compile_status(shader) {
         Ok(shader)
     } else {
-        Err(gl.get_shader_info_log(shader))
+        Err(get_shader_info_log(shader))
     }
 }
 
-pub(crate) unsafe fn link_program<'a, T: IntoIterator<Item = &'a glow::Shader>>(
-    gl: &glow::Context,
+pub(crate) unsafe fn link_program<'a, T: IntoIterator<Item = GLuint>>(
     shaders: T,
-) -> Result<glow::Program, String> {
-    let program = gl.create_program()?;
+) -> Result<GLuint, String> {
+    let program = create_program()?;
 
     for shader in shaders {
-        gl.attach_shader(program, *shader);
+        attach_shader(program, shader);
     }
 
-    gl.link_program(program);
+    gl::LinkProgram(program);
 
-    if gl.get_program_link_status(program) {
+    if get_program_link_status(program) {
         Ok(program)
     } else {
-        Err(gl.get_program_info_log(program))
+        Err(get_program_info_log(program))
     }
 }
