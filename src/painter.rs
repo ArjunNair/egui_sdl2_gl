@@ -1,18 +1,16 @@
 #![allow(clippy::collapsible_else_if)]
 #![allow(unsafe_code)]
 
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, ffi::c_void};
 
 use egui::{
     emath::Rect,
     epaint::{Mesh, PaintCallbackInfo, Primitive, Vertex},
 };
-use gl::types::{GLchar, GLuint, GLint};
+use gl::types::{GLuint, GLint};
 use memoffset::offset_of;
-// use glow::HasContext as _;
-// use memoffset::offset_of;
 
-use crate::{check_for_gl_error, gl_utils::{get_parameter_string, get_parameter_i32, get_uniform_location, create_buffer, get_attrib_location}};
+use crate::{check_for_gl_error, gl_utils::{get_parameter_string, get_parameter_i32, get_uniform_location, create_buffer, get_attrib_location, color_mask, blend_equation_separate, blend_func_separate, buffer_data_u8_slice, create_texture}};
 use crate::misc_util::{compile_shader, link_program};
 use crate::shader_version::ShaderVersion;
 use crate::vao;
@@ -47,11 +45,10 @@ pub struct Painter {
     max_texture_side: usize,
 
     program: GLuint,       //glow::Program,
-    u_screen_size: GLuint, //glow::UniformLocation,
-    u_sampler: GLuint,     // glow::UniformLocation,
-    is_webgl_1: bool,
+    u_screen_size: GLint, //glow::UniformLocation,
+    u_sampler: GLint,     // glow::UniformLocation,
     vao: crate::vao::VertexArrayObject,
-    srgb_textures: bool,
+    //srgb_textures: bool,
     vbo: GLuint,                  // glow::Buffer,
     element_array_buffer: GLuint, // glow::Buffer,
 
@@ -209,18 +206,16 @@ impl Painter {
             ];
             let vao = crate::vao::VertexArrayObject::new(vbo, buffer_infos);
 
-            let element_array_buffer = gl.create_buffer()?;
+            let element_array_buffer = create_buffer()?;
 
-            crate::check_for_gl_error_even_in_release!(&gl, "after Painter::new");
+            crate::check_for_gl_error_even_in_release!("after Painter::new");
 
             Ok(Painter {
                 max_texture_side,
                 program,
                 u_screen_size,
                 u_sampler,
-                is_webgl_1,
                 vao,
-                srgb_textures,
                 vbo,
                 element_array_buffer,
                 textures: Default::default(),
@@ -229,11 +224,6 @@ impl Painter {
                 destroyed: false,
             })
         }
-    }
-
-    /// Access the shared glow context.
-    pub fn gl(&self) -> &Arc<glow::Context> {
-        &self.gl
     }
 
     pub fn max_texture_side(&self) -> usize {
@@ -250,7 +240,7 @@ impl Painter {
     /// then restore to this afterwards with
     /// `gl.bind_framebuffer(glow::FRAMEBUFFER, painter.intermediate_fbo());`
     #[allow(clippy::unused_self)]
-    pub fn intermediate_fbo(&self) -> Option<glow::Framebuffer> {
+    pub fn intermediate_fbo(&self) -> Option<GLuint> {
         // We don't currently ever render to an offscreen buffer,
         // but we may want to start to in order to do anti-aliasing on web, for instance.
         None
@@ -261,48 +251,44 @@ impl Painter {
         [width_in_pixels, height_in_pixels]: [u32; 2],
         pixels_per_point: f32,
     ) -> (u32, u32) {
-        self.gl.enable(glow::SCISSOR_TEST);
+        gl::Enable(gl::SCISSOR_TEST);
         // egui outputs mesh in both winding orders
-        self.gl.disable(glow::CULL_FACE);
-        self.gl.disable(glow::DEPTH_TEST);
+        gl::Disable(gl::CULL_FACE);
+        gl::Disable(gl::DEPTH_TEST);
 
-        self.gl.color_mask(true, true, true, true);
+        color_mask(true, true, true, true);
 
-        self.gl.enable(glow::BLEND);
-        self.gl
-            .blend_equation_separate(glow::FUNC_ADD, glow::FUNC_ADD);
-        self.gl.blend_func_separate(
+        gl::Enable(gl::BLEND);
+        blend_equation_separate(gl::FUNC_ADD, gl::FUNC_ADD);
+        blend_func_separate(
             // egui outputs colors with premultiplied alpha:
-            glow::ONE,
-            glow::ONE_MINUS_SRC_ALPHA,
+            gl::ONE,
+            gl::ONE_MINUS_SRC_ALPHA,
             // Less important, but this is technically the correct alpha blend function
             // when you want to make use of the framebuffer alpha (for screenshots, compositing, etc).
-            glow::ONE_MINUS_DST_ALPHA,
-            glow::ONE,
+            gl::ONE_MINUS_DST_ALPHA,
+            gl::ONE,
         );
 
         if !cfg!(target_arch = "wasm32") {
-            self.gl.disable(glow::FRAMEBUFFER_SRGB);
-            check_for_gl_error!(&self.gl, "FRAMEBUFFER_SRGB");
+            gl::Disable(gl::FRAMEBUFFER_SRGB);
+            check_for_gl_error!("FRAMEBUFFER_SRGB");
         }
 
         let width_in_points = width_in_pixels as f32 / pixels_per_point;
         let height_in_points = height_in_pixels as f32 / pixels_per_point;
 
-        self.gl
-            .viewport(0, 0, width_in_pixels as i32, height_in_pixels as i32);
-        self.gl.use_program(Some(self.program));
+        gl::Viewport(0, 0, width_in_pixels as i32, height_in_pixels as i32);
+        gl::UseProgram(self.program);
 
-        self.gl
-            .uniform_2_f32(Some(&self.u_screen_size), width_in_points, height_in_points);
-        self.gl.uniform_1_i32(Some(&self.u_sampler), 0);
-        self.gl.active_texture(glow::TEXTURE0);
+        gl::Uniform2f(self.u_screen_size as i32, width_in_points, height_in_points);
+        gl::Uniform1i(self.u_sampler, 0);
+        gl::ActiveTexture(gl::TEXTURE0);
 
-        self.vao.bind(&self.gl);
-        self.gl
-            .bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(self.element_array_buffer));
+        self.vao.bind();
+        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.element_array_buffer);
 
-        check_for_gl_error!(&self.gl, "prepare_painting");
+        check_for_gl_error!("prepare_painting");
 
         (width_in_pixels, height_in_pixels)
     }
@@ -363,7 +349,7 @@ impl Painter {
             primitive,
         } in clipped_primitives
         {
-            set_clip_rect(&self.gl, size_in_pixels, pixels_per_point, *clip_rect);
+            set_clip_rect(size_in_pixels, pixels_per_point, *clip_rect);
 
             match primitive {
                 Primitive::Mesh(mesh) => {
@@ -384,7 +370,7 @@ impl Painter {
                         let rect_max_y = rect_max_y.round() as i32;
 
                         unsafe {
-                            self.gl.viewport(
+                            gl::Viewport(
                                 rect_min_x,
                                 size_in_pixels.1 as i32 - rect_max_y,
                                 rect_max_x - rect_min_x,
@@ -405,7 +391,7 @@ impl Painter {
                             tracing::warn!("Warning: Unsupported render callback. Expected egui_glow::CallbackFn");
                         }
 
-                        check_for_gl_error!(&self.gl, "callback");
+                        check_for_gl_error!("callback");
 
                         // Restore state:
                         unsafe { self.prepare_painting(screen_size_px, pixels_per_point) };
@@ -415,12 +401,12 @@ impl Painter {
         }
 
         unsafe {
-            self.vao.unbind(&self.gl);
-            self.gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, None);
+            self.vao.unbind();
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
 
-            self.gl.disable(glow::SCISSOR_TEST);
+            gl::Disable(gl::SCISSOR_TEST);
 
-            check_for_gl_error!(&self.gl, "painting");
+            check_for_gl_error!("painting");
         }
     }
 
@@ -429,34 +415,33 @@ impl Painter {
         debug_assert!(mesh.is_valid());
         if let Some(texture) = self.texture(mesh.texture_id) {
             unsafe {
-                self.gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.vbo));
-                self.gl.buffer_data_u8_slice(
-                    glow::ARRAY_BUFFER,
+                gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
+                buffer_data_u8_slice(
+                    gl::ARRAY_BUFFER,
                     bytemuck::cast_slice(&mesh.vertices),
-                    glow::STREAM_DRAW,
+                    gl::STREAM_DRAW,
                 );
 
-                self.gl
-                    .bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(self.element_array_buffer));
-                self.gl.buffer_data_u8_slice(
-                    glow::ELEMENT_ARRAY_BUFFER,
+                gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.element_array_buffer);
+                buffer_data_u8_slice(
+                    gl::ELEMENT_ARRAY_BUFFER,
                     bytemuck::cast_slice(&mesh.indices),
-                    glow::STREAM_DRAW,
+                    gl::STREAM_DRAW,
                 );
 
-                self.gl.bind_texture(glow::TEXTURE_2D, Some(texture));
+                gl::BindBuffer(gl::TEXTURE_2D, texture);
             }
 
             unsafe {
-                self.gl.draw_elements(
-                    glow::TRIANGLES,
+                gl::DrawElements(
+                    gl::TRIANGLES,
                     mesh.indices.len() as i32,
-                    glow::UNSIGNED_INT,
-                    0,
+                    gl::UNSIGNED_INT,
+                    0 as *const c_void,
                 );
             }
 
-            check_for_gl_error!(&self.gl, "paint_mesh");
+            check_for_gl_error!("paint_mesh");
         } else {
             tracing::warn!("Failed to find texture {:?}", mesh.texture_id);
         }
@@ -469,12 +454,12 @@ impl Painter {
 
         self.assert_not_destroyed();
 
-        let glow_texture = *self
+        let gl_texture = *self
             .textures
             .entry(tex_id)
-            .or_insert_with(|| unsafe { self.gl.create_texture().unwrap() });
+            .or_insert_with(|| unsafe { create_texture().unwrap() });
         unsafe {
-            self.gl.bind_texture(glow::TEXTURE_2D, Some(glow_texture));
+            gl::BindTexture(gl::TEXTURE_2D, gl_texture);
         }
 
         match &delta.image {
@@ -523,94 +508,84 @@ impl Painter {
         );
 
         unsafe {
-            self.gl.tex_parameter_i32(
-                glow::TEXTURE_2D,
-                glow::TEXTURE_MAG_FILTER,
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_MAG_FILTER,
                 options.magnification.glow_code() as i32,
             );
-            self.gl.tex_parameter_i32(
-                glow::TEXTURE_2D,
-                glow::TEXTURE_MIN_FILTER,
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_MIN_FILTER,
                 options.minification.glow_code() as i32,
             );
 
-            self.gl.tex_parameter_i32(
-                glow::TEXTURE_2D,
-                glow::TEXTURE_WRAP_S,
-                glow::CLAMP_TO_EDGE as i32,
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_WRAP_S,
+                gl::CLAMP_TO_EDGE as i32,
             );
-            self.gl.tex_parameter_i32(
-                glow::TEXTURE_2D,
-                glow::TEXTURE_WRAP_T,
-                glow::CLAMP_TO_EDGE as i32,
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_WRAP_T,
+                gl::CLAMP_TO_EDGE as i32,
             );
-            check_for_gl_error!(&self.gl, "tex_parameter");
+            check_for_gl_error!("tex_parameter");
 
-            let (internal_format, src_format) = if self.is_webgl_1 {
-                let format = if self.srgb_textures {
-                    glow::SRGB_ALPHA
-                } else {
-                    glow::RGBA
-                };
-                (format, format)
-            } else if self.srgb_textures {
-                (glow::SRGB8_ALPHA8, glow::RGBA)
-            } else {
-                (glow::RGBA8, glow::RGBA)
-            };
+            // Simplified to bare minimum for "real" OpenGL
+            let (internal_format, src_format) = (gl::RGBA8, gl::RGBA);
 
-            self.gl.pixel_store_i32(glow::UNPACK_ALIGNMENT, 1);
+            gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
 
             let level = 0;
             if let Some([x, y]) = pos {
-                self.gl.tex_sub_image_2d(
-                    glow::TEXTURE_2D,
+                gl::TexSubImage2D(
+                    gl::TEXTURE_2D,
                     level,
                     x as _,
                     y as _,
                     w as _,
                     h as _,
                     src_format,
-                    glow::UNSIGNED_BYTE,
-                    glow::PixelUnpackData::Slice(data),
+                    gl::UNSIGNED_BYTE,
+                    data.as_ptr() as *const c_void,
                 );
-                check_for_gl_error!(&self.gl, "tex_sub_image_2d");
+                check_for_gl_error!("tex_sub_image_2d");
             } else {
                 let border = 0;
-                self.gl.tex_image_2d(
-                    glow::TEXTURE_2D,
+                gl::TexImage2D(
+                    gl::TEXTURE_2D,
                     level,
                     internal_format as _,
                     w as _,
                     h as _,
                     border,
                     src_format,
-                    glow::UNSIGNED_BYTE,
-                    Some(data),
+                    gl::UNSIGNED_BYTE,
+                    data.as_ptr() as *const c_void,
                 );
-                check_for_gl_error!(&self.gl, "tex_image_2d");
+                check_for_gl_error!("tex_image_2d");
             }
         }
     }
 
     pub fn free_texture(&mut self, tex_id: egui::TextureId) {
         if let Some(old_tex) = self.textures.remove(&tex_id) {
-            unsafe { self.gl.delete_texture(old_tex) };
+            unsafe { gl::DeleteTextures(1, &old_tex) };
         }
     }
 
     /// Get the [`glow::Texture`] bound to a [`egui::TextureId`].
-    pub fn texture(&self, texture_id: egui::TextureId) -> Option<glow::Texture> {
+    pub fn texture(&self, texture_id: egui::TextureId) -> Option<GLuint> {
         self.textures.get(&texture_id).copied()
     }
 
     #[deprecated = "renamed 'texture'"]
-    pub fn get_texture(&self, texture_id: egui::TextureId) -> Option<glow::Texture> {
+    pub fn get_texture(&self, texture_id: egui::TextureId) -> Option<GLuint> {
         self.texture(texture_id)
     }
 
     #[allow(clippy::needless_pass_by_value)] // False positive
-    pub fn register_native_texture(&mut self, native: glow::Texture) -> egui::TextureId {
+    pub fn register_native_texture(&mut self, native: GLuint) -> egui::TextureId {
         self.assert_not_destroyed();
         let id = egui::TextureId::User(self.next_native_tex_id);
         self.next_native_tex_id += 1;
@@ -619,7 +594,7 @@ impl Painter {
     }
 
     #[allow(clippy::needless_pass_by_value)] // False positive
-    pub fn replace_native_texture(&mut self, id: egui::TextureId, replacing: glow::Texture) {
+    pub fn replace_native_texture(&mut self, id: egui::TextureId, replacing: GLuint) {
         if let Some(old_tex) = self.textures.insert(id, replacing) {
             self.textures_to_destroy.push(old_tex);
         }
@@ -628,14 +603,14 @@ impl Painter {
     pub fn read_screen_rgba(&self, [w, h]: [u32; 2]) -> Vec<u8> {
         let mut pixels = vec![0_u8; (w * h * 4) as usize];
         unsafe {
-            self.gl.read_pixels(
+            gl::ReadPixels(
                 0,
                 0,
                 w as _,
                 h as _,
-                glow::RGBA,
-                glow::UNSIGNED_BYTE,
-                glow::PixelPackData::Slice(&mut pixels),
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                pixels.as_mut_ptr() as *mut c_void,
             );
         }
         pixels
@@ -644,28 +619,28 @@ impl Painter {
     pub fn read_screen_rgb(&self, [w, h]: [u32; 2]) -> Vec<u8> {
         let mut pixels = vec![0_u8; (w * h * 3) as usize];
         unsafe {
-            self.gl.read_pixels(
+            gl::ReadPixels(
                 0,
                 0,
                 w as _,
                 h as _,
-                glow::RGB,
-                glow::UNSIGNED_BYTE,
-                glow::PixelPackData::Slice(&mut pixels),
+                gl::RGB,
+                gl::UNSIGNED_BYTE,
+                pixels.as_mut_ptr() as *mut c_void,
             );
         }
         pixels
     }
 
     unsafe fn destroy_gl(&self) {
-        self.gl.delete_program(self.program);
+        gl::DeleteProgram(self.program);
         for tex in self.textures.values() {
-            self.gl.delete_texture(*tex);
+            gl::DeleteTextures(1, tex);
         }
-        self.gl.delete_buffer(self.vbo);
-        self.gl.delete_buffer(self.element_array_buffer);
+        gl::DeleteBuffers(1, &self.vbo);
+        gl::DeleteBuffers(1, &self.element_array_buffer);
         for t in &self.textures_to_destroy {
-            self.gl.delete_texture(*t);
+            gl::DeleteTextures(1, t);
         }
     }
 
@@ -685,24 +660,24 @@ impl Painter {
     }
 }
 
-pub fn clear(gl: &glow::Context, screen_size_in_pixels: [u32; 2], clear_color: [f32; 4]) {
+pub fn clear(screen_size_in_pixels: [u32; 2], clear_color: [f32; 4]) {
     crate::profile_function!();
     unsafe {
-        gl.disable(glow::SCISSOR_TEST);
+        gl::Disable(gl::SCISSOR_TEST);
 
-        gl.viewport(
+        gl::Viewport(
             0,
             0,
             screen_size_in_pixels[0] as i32,
             screen_size_in_pixels[1] as i32,
         );
-        gl.clear_color(
+        gl::ClearColor(
             clear_color[0],
             clear_color[1],
             clear_color[2],
             clear_color[3],
         );
-        gl.clear(glow::COLOR_BUFFER_BIT);
+        gl::Clear(gl::COLOR_BUFFER_BIT);
     }
 }
 
@@ -717,7 +692,6 @@ impl Drop for Painter {
 }
 
 fn set_clip_rect(
-    gl: &glow::Context,
     size_in_pixels: (u32, u32),
     pixels_per_point: f32,
     clip_rect: Rect,
@@ -741,7 +715,7 @@ fn set_clip_rect(
     let clip_max_y = clip_max_y.clamp(clip_min_y, size_in_pixels.1 as i32);
 
     unsafe {
-        gl.scissor(
+        gl::Scissor(
             clip_min_x,
             size_in_pixels.1 as i32 - clip_max_y,
             clip_max_x - clip_min_x,

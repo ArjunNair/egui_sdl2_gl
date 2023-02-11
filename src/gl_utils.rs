@@ -96,14 +96,14 @@ pub unsafe fn get_program_info_log(program: GLuint) -> String {
 pub unsafe fn get_uniform_location(
     program: GLuint,
     name: &str,
-) -> Option<GLuint> {
+) -> Option<GLint> {
     let name = CString::new(name).unwrap();
     let uniform_location =
         gl::GetUniformLocation(program, name.as_ptr() as *const GLchar);
     if uniform_location < 0 {
         None
     } else {
-        Some(uniform_location as GLuint)
+        Some(uniform_location)
     }
 }
 
@@ -148,4 +148,44 @@ pub unsafe fn vertex_attrib_pointer_f32(
     );
 }
 
+pub unsafe fn color_mask(red: bool, green: bool, blue: bool, alpha: bool) {
+    gl::ColorMask(red as u8, green as u8, blue as u8, alpha as u8);
+}
 
+pub unsafe fn blend_equation_separate(mode_rgb: u32, mode_alpha: u32) {
+    gl::BlendEquationSeparate(mode_rgb as u32, mode_alpha as u32);
+}
+
+pub unsafe fn blend_func_separate(
+    src_rgb: u32,
+    dst_rgb: u32,
+    src_alpha: u32,
+    dst_alpha: u32,
+) {
+    gl::BlendFuncSeparate(
+        src_rgb as u32,
+        dst_rgb as u32,
+        src_alpha as u32,
+        dst_alpha as u32,
+    );
+}
+
+// pub unsafe fn bind_vertex_array(vao: GLuint) {
+//     gl::BindVertexArray(vao);
+//     check_for_gl_error!("bind_vertex_array");
+// }
+
+pub unsafe fn buffer_data_u8_slice(target: u32, data: &[u8], usage: u32) {
+    gl::BufferData(
+        target,
+        data.len() as isize,
+        data.as_ptr() as *const std::ffi::c_void,
+        usage,
+    );
+}
+
+pub unsafe fn create_texture() -> Result<GLuint, String> {
+    let mut name = 0;
+    gl::GenTextures(1, &mut name);
+    Ok(name)
+}

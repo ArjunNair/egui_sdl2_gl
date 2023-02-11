@@ -15,10 +15,11 @@ include = ["**/*.rs", "Cargo.toml"]
 
 [dependencies]
 gl = "0.14"
-egui = "0.21"
+egui = { version = "0.21", features =["bytemuck"] }
 sdl2 = "0.35"
 tracing = "*"
 memoffset = "0.6"
+bytemuck = "1.13"
 
 [dependencies.epi]
 version = "0.17"
