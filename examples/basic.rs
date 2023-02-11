@@ -35,11 +35,12 @@ fn main() {
     // Create a window context
     let _ctx = window.gl_create_context().unwrap();
     // Init egui stuff
-    let shader_ver = ShaderVersion::Default;
+    let shader_ver = ShaderVersion::Gl140; // TODO: more intelligent choice?
     // On linux use GLES SL 100+, like so:
     // let shader_ver = ShaderVersion::Adaptive;
-    let (mut painter, mut egui_state) =
-        egui_backend::with_sdl2(&window, shader_ver, DpiScaling::Custom(2.0));
+    // let (mut painter, mut egui_state) =
+    //     egui_backend::with_sdl2(&window, shader_ver, DpiScaling::Custom(2.0));
+    let mut painter = egui_backend::Painter::new("", None);
     let mut egui_ctx = egui::Context::default();
     let mut event_pump = sdl_context.event_pump().unwrap();
 

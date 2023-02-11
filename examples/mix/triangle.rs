@@ -2,8 +2,7 @@
 // based on the example from:
 // https://github.com/brendanzab/gl-rs/blob/master/gl/examples/triangle.rs
 
-use egui_sdl2_gl::gl;
-use egui_sdl2_gl::gl::types::*;
+use gl::types::{GLfloat, GLuint, GLint, GLenum, GLchar, GLsizeiptr, GLboolean};
 use std::ffi::CString;
 use std::mem;
 use std::ptr;

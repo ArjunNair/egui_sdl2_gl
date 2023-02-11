@@ -97,7 +97,6 @@ impl Painter {
     /// * failed to create postprocess on webgl with `sRGB` support
     /// * failed to create buffer
     pub fn new(
-        //gl: Arc<glow::Context>,
         shader_prefix: &str,
         shader_version: Option<ShaderVersion>,
     ) -> Result<Painter, String> {
@@ -127,7 +126,6 @@ impl Painter {
 
         let max_texture_side = unsafe { get_parameter_i32(gl::MAX_TEXTURE_SIZE) } as usize;
         let shader_version = shader_version.unwrap_or_else(|| ShaderVersion::get());
-        let is_webgl_1 = shader_version == ShaderVersion::Es100;
         let shader_version_declaration = shader_version.version_declaration();
         tracing::debug!("Shader header: {:?}.", shader_version_declaration);
 
