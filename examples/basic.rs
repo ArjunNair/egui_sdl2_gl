@@ -108,7 +108,7 @@ fn main() {
         }
 
         //if !full_output..needs_repaint {
-        if full_output.repaint_after.is_zero() {
+        if !full_output.repaint_after.is_zero() {
             if let Some(event) = event_pump.wait_event_timeout(5) {
                 match event {
                     Event::Quit { .. } => break 'running,
