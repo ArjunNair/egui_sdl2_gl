@@ -107,11 +107,7 @@ impl Painter {
         shader_prefix: &str,
         // shader_version: Option<ShaderVersion>,
     ) -> Result<Painter, String> {
-        check_for_gl_error_even_in_release!("before Painter::new");
-
         // Code from egui_sdl2_gl
-
-        gl::load_with(|name| window.subsystem().gl_get_proc_address(name) as *const _);
 
         let pixels_per_point = scale;
         let size =  window.drawable_size();
@@ -119,6 +115,8 @@ impl Painter {
         let screen_rect = Rect::from_min_size(Pos2::new(0f32, 0f32), rect);
 
         // Code from egui_glow
+
+        check_for_gl_error_even_in_release!("starting Painter::new");
 
         // some useful debug info. all three of them are present in gl 1.1.
         unsafe {

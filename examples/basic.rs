@@ -1,6 +1,6 @@
 use egui::Checkbox;
-use egui_backend::{DpiScaling};
-use std::time::{Instant};
+use egui_backend::DpiScaling;
+use std::time::Instant;
 // Alias the backend to something less mouthful
 use egui_sdl2_gl as egui_backend;
 use sdl2::{
@@ -35,6 +35,11 @@ fn main() {
 
     // Create a window context
     let _ctx = window.gl_create_context().unwrap();
+    gl::load_with(|name| {
+        // println!("Loading: {}", name);
+        window.subsystem().gl_get_proc_address(name) as *const _
+    });
+
     // Init egui stuff
     let (mut painter, mut egui_state) = egui_backend::with_sdl2(&window, DpiScaling::Custom(2.0));
     let egui_ctx = egui::Context::default();

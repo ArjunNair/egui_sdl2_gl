@@ -1,0 +1,21 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "cppvsdbg",
+            "request": "launch",
+            "name": "run app",
+            "program": "${workspaceFolder}\\target\\i686-pc-windows-msvc\\debug\\examples\\basic.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "sourceFileMap": {},
+            "preLaunchTask": "build_i686",
+            "postDebugTask": "",
+            "console": "internalConsole",
+            "internalConsoleOptions": "openOnSessionStart",
+        }
+    ]
+}

@@ -1,0 +1,21 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "cargo",
+			"command": "build",
+            "args": [
+				"--example", "basic",
+				"--target", "i686-pc-windows-msvc",
+            ],
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build",
+			"label": "build_i686",
+			"options": {
+				"cwd": "${workspaceRoot}\\examples"
+			}
+		}
+	]
+}
