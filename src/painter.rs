@@ -44,6 +44,7 @@ impl TextureFilterExt for egui::TextureFilter {
 pub struct Painter {
     // from egui_glow
     pub pixels_per_point: f32,
+    pub screen_rect: Rect,
 
     max_texture_side: usize,
 
@@ -64,7 +65,6 @@ pub struct Painter {
 
     /// Used to make sure we are destroyed correctly.
     destroyed: bool,
-    screen_rect: Rect,
 }
 
 /// A callback function that can be used to compose an [`egui::PaintCallback`] for custom rendering
@@ -669,6 +669,11 @@ impl Painter {
 
     fn assert_not_destroyed(&self) {
         assert!(!self.destroyed, "the egui glow has already been destroyed!");
+    }
+
+    pub(crate) fn update_screen_rect(&mut self, size: (u32, u32)) {
+        self.screen_rect.set_width(size.0 as f32);
+        self.screen_rect.set_height(size.1 as f32);
     }
 }
 

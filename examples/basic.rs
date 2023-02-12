@@ -1,5 +1,5 @@
 use std::time::Instant;
-use egui_backend::ShaderVersion;
+use egui_backend::{ShaderVersion, DpiScaling};
 // Alias the backend to something less mouthful
 use egui_sdl2_gl as egui_backend;
 use sdl2::video::{SwapInterval, GLProfile};
@@ -38,7 +38,7 @@ fn main() {
     // let (mut painter, mut egui_state) =
     //     egui_backend::with_sdl2(&window, shader_ver, DpiScaling::Custom(2.0));
     let (mut painter, mut egui_state) =
-        egui_backend::with_sdl2(&window, shader_ver, DpiScaling::Custom(2.0));
+        egui_backend::with_sdl2(&window, DpiScaling::Custom(2.0));
     let mut egui_ctx = egui::Context::default();
     let mut event_pump = sdl_context.event_pump().unwrap();
 

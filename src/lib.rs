@@ -87,7 +87,7 @@ pub struct EguiStateHandler {
 
 pub fn with_sdl2(
     window: &sdl2::video::Window,
-    shader_ver: ShaderVersion,
+    // shader_ver: ShaderVersion,
     scale: DpiScaling,
 ) -> (Painter, EguiStateHandler) {
     let scale = match scale {
@@ -127,7 +127,7 @@ impl EguiStateHandler {
         input_to_egui(window, event, painter, self);
     }
 
-    pub fn process_output(&mut self, window: &sdl2::video::Window, egui_output: &egui::Output) {
+    pub fn process_output(&mut self, window: &sdl2::video::Window, egui_output: &egui::PlatformOutput) {
         if !egui_output.copied_text.is_empty() {
             let copied_text = egui_output.copied_text.clone();
             {
@@ -239,6 +239,7 @@ pub fn input_to_egui(
                 key,
                 pressed: false,
                 modifiers: state.modifiers,
+                repeat: false
             });
         }
 
@@ -272,6 +273,7 @@ pub fn input_to_egui(
                 key,
                 pressed: true,
                 modifiers: state.modifiers,
+                repeat: false
             });
 
             if state.modifiers.command && key == Key::C {
