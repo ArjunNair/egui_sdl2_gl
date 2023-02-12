@@ -108,7 +108,10 @@ impl EguiStateHandler {
             fused_cursor: FusedCursor::default(),
             pointer_pos: Pos2::new(0f32, 0f32),
             input: egui::RawInput {
-                screen_rect: Some(painter.screen_rect),
+                screen_rect: Some(Rect::from_min_size(
+                    Pos2::new(0., 0.),
+                    painter.screen_size_points(),
+                )),
                 pixels_per_point: Some(native_pixels_per_point),
                 ..Default::default()
             },
@@ -127,7 +130,11 @@ impl EguiStateHandler {
         input_to_egui(window, event, painter, self);
     }
 
-    pub fn process_output(&mut self, window: &sdl2::video::Window, egui_output: &egui::PlatformOutput) {
+    pub fn process_output(
+        &mut self,
+        window: &sdl2::video::Window,
+        egui_output: &egui::PlatformOutput,
+    ) {
         if !egui_output.copied_text.is_empty() {
             let copied_text = egui_output.copied_text.clone();
             {
@@ -161,7 +168,10 @@ pub fn input_to_egui(
         Window { win_event, .. } => match win_event {
             WindowEvent::Resized(_, _) | sdl2::event::WindowEvent::SizeChanged(_, _) => {
                 painter.update_screen_rect(window.drawable_size());
-                state.input.screen_rect = Some(painter.screen_rect);
+                state.input.screen_rect = Some(Rect::from_min_size(
+                    Pos2::new(0., 0.),
+                    painter.screen_size_points(),
+                ));
             }
             _ => (),
         },
@@ -239,7 +249,7 @@ pub fn input_to_egui(
                 key,
                 pressed: false,
                 modifiers: state.modifiers,
-                repeat: false
+                repeat: false,
             });
         }
 
@@ -273,7 +283,7 @@ pub fn input_to_egui(
                 key,
                 pressed: true,
                 modifiers: state.modifiers,
-                repeat: false
+                repeat: false,
             });
 
             if state.modifiers.command && key == Key::C {

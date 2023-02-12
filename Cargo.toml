@@ -20,6 +20,10 @@ sdl2 = "0.35"
 tracing = "*"
 memoffset = "0.6"
 bytemuck = "1.13"
+# Conditionally get the Windows API bindings
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["shellscalingapi"] }
 
 [dependencies.epi]
 version = "0.17"

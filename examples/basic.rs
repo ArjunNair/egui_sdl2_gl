@@ -1,5 +1,6 @@
 use egui::Checkbox;
 use egui_backend::DpiScaling;
+use winapi::um::shellscalingapi::{PROCESS_PER_MONITOR_DPI_AWARE, SetProcessDpiAwareness};
 use std::time::Instant;
 // Alias the backend to something less mouthful
 use egui_sdl2_gl as egui_backend;
@@ -12,6 +13,13 @@ const SCREEN_WIDTH: u32 = 800;
 const SCREEN_HEIGHT: u32 = 600;
 
 fn main() {
+    // Set per-process DPI awareness
+    // https://docs.microsoft.com/en-us/windows/win32/hidpi/high-dpi-desktop-application-development-on-windows
+    #[cfg(windows)]
+    unsafe {
+        SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
+    }
+
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let gl_attr = video_subsystem.gl_attr();

@@ -44,7 +44,7 @@ impl TextureFilterExt for egui::TextureFilter {
 pub struct Painter {
     // from egui_glow
     pub pixels_per_point: f32,
-    pub screen_rect: Rect,
+    pub screen_size_px: (u32, u32),
 
     max_texture_side: usize,
 
@@ -109,10 +109,8 @@ impl Painter {
     ) -> Result<Painter, String> {
         // Code from egui_sdl2_gl
 
-        let pixels_per_point = scale;
-        let size =  window.drawable_size();
-        let rect = Vec2::new(size.0 as f32, size.1 as f32) / pixels_per_point;
-        let screen_rect = Rect::from_min_size(Pos2::new(0f32, 0f32), rect);
+        let pixels_per_point = 1. / scale;
+        let screen_size_px =  window.drawable_size();
 
         // Code from egui_glow
 
@@ -225,7 +223,7 @@ impl Painter {
 
             Ok(Painter {
                 pixels_per_point,
-                screen_rect,
+                screen_size_px,
                 max_texture_side,
                 program,
                 u_screen_size,
@@ -243,6 +241,13 @@ impl Painter {
 
     pub fn max_texture_side(&self) -> usize {
         self.max_texture_side
+    }
+
+    pub fn screen_size_points(&self) -> Vec2 {
+        Vec2::new(
+            self.screen_size_px.0 as f32 / self.pixels_per_point,
+            self.screen_size_px.1 as f32 / self.pixels_per_point
+        )
     }
 
     /// The framebuffer we use as an intermediate render target,
@@ -290,8 +295,8 @@ impl Painter {
             check_for_gl_error!("FRAMEBUFFER_SRGB");
         }
 
-        let width_in_pixels = self.screen_rect.width() as u32; // width_in_pixels as f32 / pixels_per_point;
-        let height_in_pixels = self.screen_rect.height() as u32; // height_in_pixels as f32 / pixels_per_point;
+        let width_in_pixels = self.screen_size_px.0;
+        let height_in_pixels = self.screen_size_px.1;
         let width_in_points = width_in_pixels as f32 / self.pixels_per_point;
         let height_in_points = height_in_pixels as f32 / self.pixels_per_point;
 
@@ -394,7 +399,7 @@ impl Painter {
                             viewport: callback.rect,
                             clip_rect: *clip_rect,
                             pixels_per_point: self.pixels_per_point,
-                            screen_size_px: [self.screen_rect.size().x as u32, self.screen_rect.size().y as u32],
+                            screen_size_px: [self.screen_size_px.0, self.screen_size_px.1],
                         };
 
                         if let Some(callback) = callback.callback.downcast_ref::<CallbackFn>() {
@@ -670,8 +675,7 @@ impl Painter {
     }
 
     pub(crate) fn update_screen_rect(&mut self, size: (u32, u32)) {
-        self.screen_rect.set_width(size.0 as f32);
-        self.screen_rect.set_height(size.1 as f32);
+        self.screen_size_px = size;
     }
 }
 
