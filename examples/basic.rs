@@ -41,7 +41,8 @@ fn main() {
     });
 
     // Init egui stuff
-    let (mut painter, mut egui_state) = egui_backend::with_sdl2(&window, DpiScaling::Custom(2.0));
+    let (mut painter, mut egui_state) = egui_backend::with_sdl2(&window, DpiScaling::Default); 
+    // DpiScaling::Custom(2.0));
     let egui_ctx = egui::Context::default();
     let mut event_pump = sdl_context.event_pump().unwrap();
 
