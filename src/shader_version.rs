@@ -2,7 +2,7 @@
 
 use std::convert::TryInto;
 
-use crate::gl_utils::get_parameter_string;
+use crate::gl::get_parameter_string;
 
 /// Helper for parsing and interpreting the OpenGL shader version.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

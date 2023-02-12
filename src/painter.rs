@@ -10,7 +10,7 @@ use egui::{
 use gl::types::{GLuint, GLint};
 use memoffset::offset_of;
 
-use crate::{check_for_gl_error, gl_utils::{get_parameter_string, get_parameter_i32, get_uniform_location, create_buffer, get_attrib_location, color_mask, blend_equation_separate, blend_func_separate, buffer_data_u8_slice, create_texture}};
+use crate::{check_for_gl_error, gl::{get_parameter_string, get_parameter_i32, get_uniform_location, create_buffer, get_attrib_location, color_mask, blend_equation_separate, blend_func_separate, buffer_data_u8_slice, create_texture}, check_for_gl_error_even_in_release};
 use crate::misc_util::{compile_shader, link_program};
 use crate::shader_version::ShaderVersion;
 use crate::vao;
@@ -100,8 +100,7 @@ impl Painter {
         shader_prefix: &str,
         shader_version: Option<ShaderVersion>,
     ) -> Result<Painter, String> {
-        crate::profile_function!();
-        //crate::check_for_gl_error_even_in_release!(&gl, "before Painter::new");
+        check_for_gl_error_even_in_release!("before Painter::new");
 
         // some useful debug info. all three of them are present in gl 1.1.
         unsafe {
@@ -299,7 +298,6 @@ impl Painter {
         clipped_primitives: &[egui::ClippedPrimitive],
         textures_delta: &egui::TexturesDelta,
     ) {
-        crate::profile_function!();
         for (id, image_delta) in &textures_delta.set {
             self.set_texture(*id, image_delta);
         }
@@ -337,7 +335,6 @@ impl Painter {
         pixels_per_point: f32,
         clipped_primitives: &[egui::ClippedPrimitive],
     ) {
-        crate::profile_function!();
         self.assert_not_destroyed();
 
         let size_in_pixels = unsafe { self.prepare_painting(screen_size_px, pixels_per_point) };
@@ -355,7 +352,6 @@ impl Painter {
                 }
                 Primitive::Callback(callback) => {
                     if callback.rect.is_positive() {
-                        crate::profile_scope!("callback");
                         // Transform callback rect to physical pixels:
                         let rect_min_x = pixels_per_point * callback.rect.min.x;
                         let rect_min_y = pixels_per_point * callback.rect.min.y;
@@ -448,8 +444,6 @@ impl Painter {
     // ------------------------------------------------------------------------
 
     pub fn set_texture(&mut self, tex_id: egui::TextureId, delta: &egui::epaint::ImageDelta) {
-        crate::profile_function!();
-
         self.assert_not_destroyed();
 
         let gl_texture = *self
@@ -659,7 +653,6 @@ impl Painter {
 }
 
 pub fn clear(screen_size_in_pixels: [u32; 2], clear_color: [f32; 4]) {
-    crate::profile_function!();
     unsafe {
         gl::Disable(gl::SCISSOR_TEST);
 

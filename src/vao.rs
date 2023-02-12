@@ -1,6 +1,6 @@
 #![allow(unsafe_code)]
 
-use crate::{check_for_gl_error, gl_utils::{create_vertex_array, vertex_attrib_pointer_f32}};
+use crate::{check_for_gl_error, gl::{create_vertex_array, vertex_attrib_pointer_f32}};
 use gl::types::GLuint;
 
 // ----------------------------------------------------------------------------

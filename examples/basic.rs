@@ -1,11 +1,8 @@
-use egui::Checkbox;
-use egui_backend::sdl2::video::GLProfile;
-use egui_backend::{egui, gl, sdl2};
-use egui_backend::{sdl2::event::Event, DpiScaling, ShaderVersion};
 use std::time::Instant;
+use egui_backend::ShaderVersion;
 // Alias the backend to something less mouthful
 use egui_sdl2_gl as egui_backend;
-use sdl2::video::SwapInterval;
+use sdl2::video::{SwapInterval, GLProfile};
 
 const SCREEN_WIDTH: u32 = 800;
 const SCREEN_HEIGHT: u32 = 600;
@@ -40,7 +37,8 @@ fn main() {
     // let shader_ver = ShaderVersion::Adaptive;
     // let (mut painter, mut egui_state) =
     //     egui_backend::with_sdl2(&window, shader_ver, DpiScaling::Custom(2.0));
-    let mut painter = egui_backend::Painter::new("", None);
+    let (mut painter, mut egui_state) =
+        egui_backend::with_sdl2(&window, shader_ver, DpiScaling::Custom(2.0));
     let mut egui_ctx = egui::Context::default();
     let mut event_pump = sdl_context.event_pump().unwrap();
 

@@ -2,7 +2,7 @@
 
 use gl::types::GLuint;
 
-use crate::gl_utils::{create_shader, shader_source, get_shader_compile_status, get_shader_info_log, create_program, attach_shader, get_program_link_status, get_program_info_log};
+use crate::gl::{create_shader, shader_source, get_shader_compile_status, get_shader_info_log, create_program, attach_shader, get_program_link_status, get_program_info_log};
 
 pub(crate) unsafe fn compile_shader(
     shader_type: u32,
