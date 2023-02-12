@@ -265,8 +265,8 @@ impl Painter {
 
     unsafe fn prepare_painting(
         &mut self,
-        [width_in_pixels, height_in_pixels]: [u32; 2],
-        pixels_per_point: f32,
+        // [width_in_pixels, height_in_pixels]: [u32; 2],
+        // pixels_per_point: f32,
     ) -> (u32, u32) {
         gl::Enable(gl::SCISSOR_TEST);
         // egui outputs mesh in both winding orders
@@ -292,8 +292,10 @@ impl Painter {
             check_for_gl_error!("FRAMEBUFFER_SRGB");
         }
 
-        let width_in_points = width_in_pixels as f32 / pixels_per_point;
-        let height_in_points = height_in_pixels as f32 / pixels_per_point;
+        let width_in_pixels = self.screen_rect.width() as u32; // width_in_pixels as f32 / pixels_per_point;
+        let height_in_pixels = self.screen_rect.height() as u32; // height_in_pixels as f32 / pixels_per_point;
+        let width_in_points = width_in_pixels as f32 / self.pixels_per_point;
+        let height_in_points = height_in_pixels as f32 / self.pixels_per_point;
 
         gl::Viewport(0, 0, width_in_pixels as i32, height_in_pixels as i32);
         gl::UseProgram(self.program);
@@ -313,8 +315,6 @@ impl Painter {
     /// You are expected to have cleared the color buffer before calling this.
     pub fn paint_and_update_textures(
         &mut self,
-        screen_size_px: [u32; 2],
-        pixels_per_point: f32,
         clipped_primitives: &[egui::ClippedPrimitive],
         textures_delta: &egui::TexturesDelta,
     ) {
@@ -322,7 +322,7 @@ impl Painter {
             self.set_texture(*id, image_delta);
         }
 
-        self.paint_primitives(screen_size_px, pixels_per_point, clipped_primitives);
+        self.paint_primitives(clipped_primitives);
 
         for &id in &textures_delta.free {
             self.free_texture(id);
@@ -351,20 +351,20 @@ impl Painter {
     /// of the effects your program might have on this code. Look at the source if in doubt.
     pub fn paint_primitives(
         &mut self,
-        screen_size_px: [u32; 2],
-        pixels_per_point: f32,
+        // screen_size_px: [u32; 2],
+        // pixels_per_point: f32,
         clipped_primitives: &[egui::ClippedPrimitive],
     ) {
         self.assert_not_destroyed();
 
-        let size_in_pixels = unsafe { self.prepare_painting(screen_size_px, pixels_per_point) };
+        let size_in_pixels = unsafe { self.prepare_painting() };
 
         for egui::ClippedPrimitive {
             clip_rect,
             primitive,
         } in clipped_primitives
         {
-            set_clip_rect(size_in_pixels, pixels_per_point, *clip_rect);
+            set_clip_rect(size_in_pixels, self.pixels_per_point, *clip_rect);
 
             match primitive {
                 Primitive::Mesh(mesh) => {
@@ -373,10 +373,10 @@ impl Painter {
                 Primitive::Callback(callback) => {
                     if callback.rect.is_positive() {
                         // Transform callback rect to physical pixels:
-                        let rect_min_x = pixels_per_point * callback.rect.min.x;
-                        let rect_min_y = pixels_per_point * callback.rect.min.y;
-                        let rect_max_x = pixels_per_point * callback.rect.max.x;
-                        let rect_max_y = pixels_per_point * callback.rect.max.y;
+                        let rect_min_x = self.pixels_per_point * callback.rect.min.x;
+                        let rect_min_y = self.pixels_per_point * callback.rect.min.y;
+                        let rect_max_x = self.pixels_per_point * callback.rect.max.x;
+                        let rect_max_y = self.pixels_per_point * callback.rect.max.y;
 
                         let rect_min_x = rect_min_x.round() as i32;
                         let rect_min_y = rect_min_y.round() as i32;
@@ -395,8 +395,8 @@ impl Painter {
                         let info = egui::PaintCallbackInfo {
                             viewport: callback.rect,
                             clip_rect: *clip_rect,
-                            pixels_per_point,
-                            screen_size_px,
+                            pixels_per_point: self.pixels_per_point,
+                            screen_size_px: [self.screen_rect.size().x as u32, self.screen_rect.size().y as u32],
                         };
 
                         if let Some(callback) = callback.callback.downcast_ref::<CallbackFn>() {
@@ -408,7 +408,7 @@ impl Painter {
                         check_for_gl_error!("callback");
 
                         // Restore state:
-                        unsafe { self.prepare_painting(screen_size_px, pixels_per_point) };
+                        unsafe { self.prepare_painting() };
                     }
                 }
             }
