@@ -10,6 +10,7 @@ pub mod painter;
 #[cfg(feature = "use_epi")]
 pub use epi;
 use painter::Painter;
+use shader_version::ShaderVersion;
 #[cfg(feature = "use_epi")]
 use std::time::Instant;
 use {
@@ -68,13 +69,13 @@ pub enum DpiScaling {
     Custom(f32),
 }
 
-#[derive(Clone)]
-pub enum ShaderVersion {
-    /// Default is GLSL 150+.
-    Default,
-    /// support GLSL 140+ and GLES SL 300.
-    Adaptive,
-}
+// #[derive(Clone)]
+// pub enum ShaderVersion {
+//     /// Default is GLSL 150+.
+//     Default,
+//     /// support GLSL 140+ and GLES SL 300.
+//     Adaptive,
+// }
 
 pub struct EguiStateHandler {
     pub fused_cursor: FusedCursor,
@@ -95,7 +96,8 @@ pub fn with_sdl2(
             (96.0 / window.subsystem().display_dpi(0).unwrap().0) * custom
         }
     };
-    let painter = Painter::new(window, scale, shader_ver);
+    let painter =
+        Painter::new(window, scale, ShaderVersion::Gl140, "").expect("failed to create painter");
     EguiStateHandler::new(painter)
 }
 

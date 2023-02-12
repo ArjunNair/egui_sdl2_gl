@@ -5,10 +5,11 @@ use std::{collections::HashMap, ffi::c_void};
 
 use egui::{
     emath::Rect,
-    epaint::{Mesh, PaintCallbackInfo, Primitive, Vertex},
+    epaint::{Mesh, PaintCallbackInfo, Primitive, Vertex}, Vec2, Pos2,
 };
 use gl::types::{GLuint, GLint};
 use memoffset::offset_of;
+use sdl2::video::Window;
 
 use crate::{check_for_gl_error, gl::{get_parameter_string, get_parameter_i32, get_uniform_location, create_buffer, get_attrib_location, color_mask, blend_equation_separate, blend_func_separate, buffer_data_u8_slice, create_texture}, check_for_gl_error_even_in_release};
 use crate::misc_util::{compile_shader, link_program};
@@ -41,7 +42,9 @@ impl TextureFilterExt for egui::TextureFilter {
 /// This struct must be destroyed with [`Painter::destroy`] before dropping, to ensure OpenGL
 /// objects have been properly deleted and are not leaked.
 pub struct Painter {
-    // gl: Arc<glow::Context>,
+    // from egui_glow
+    pub pixels_per_point: f32,
+
     max_texture_side: usize,
 
     program: GLuint,       //glow::Program,
@@ -61,6 +64,7 @@ pub struct Painter {
 
     /// Used to make sure we are destroyed correctly.
     destroyed: bool,
+    screen_rect: Rect,
 }
 
 /// A callback function that can be used to compose an [`egui::PaintCallback`] for custom rendering
@@ -97,10 +101,24 @@ impl Painter {
     /// * failed to create postprocess on webgl with `sRGB` support
     /// * failed to create buffer
     pub fn new(
+        window: &Window,
+        scale: f32,
+        shader_version: ShaderVersion,
         shader_prefix: &str,
-        shader_version: Option<ShaderVersion>,
+        // shader_version: Option<ShaderVersion>,
     ) -> Result<Painter, String> {
         check_for_gl_error_even_in_release!("before Painter::new");
+
+        // Code from egui_sdl2_gl
+
+        gl::load_with(|name| window.subsystem().gl_get_proc_address(name) as *const _);
+
+        let pixels_per_point = scale;
+        let size =  window.drawable_size();
+        let rect = Vec2::new(size.0 as f32, size.1 as f32) / pixels_per_point;
+        let screen_rect = Rect::from_min_size(Pos2::new(0f32, 0f32), rect);
+
+        // Code from egui_glow
 
         // some useful debug info. all three of them are present in gl 1.1.
         unsafe {
@@ -124,7 +142,7 @@ impl Painter {
         }
 
         let max_texture_side = unsafe { get_parameter_i32(gl::MAX_TEXTURE_SIZE) } as usize;
-        let shader_version = shader_version.unwrap_or_else(|| ShaderVersion::get());
+        // let shader_version = shader_version.unwrap_or_else(|| ShaderVersion::get());
         let shader_version_declaration = shader_version.version_declaration();
         tracing::debug!("Shader header: {:?}.", shader_version_declaration);
 
@@ -208,6 +226,8 @@ impl Painter {
             crate::check_for_gl_error_even_in_release!("after Painter::new");
 
             Ok(Painter {
+                pixels_per_point,
+                screen_rect,
                 max_texture_side,
                 program,
                 u_screen_size,
