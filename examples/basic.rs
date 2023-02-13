@@ -20,17 +20,16 @@ fn main() {
         SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
     }
 
-    let sdl_context = sdl2::init().unwrap();
-    let video_subsystem = sdl_context.video().unwrap();
-    let gl_attr = video_subsystem.gl_attr();
+    let sdl = sdl2::init().unwrap();
+    let video = sdl.video().unwrap();
+    let gl_attr = video.gl_attr();
     gl_attr.set_context_profile(GLProfile::Core);
     // On linux, OpenGL ES Mesa driver 22.0.0+ can be used like so:
     // gl_attr.set_context_profile(GLProfile::GLES);
-
     gl_attr.set_double_buffer(true);
     gl_attr.set_multisample_samples(4);
 
-    let window = video_subsystem
+    let window = video
         .window(
             "Demo: Egui backend for SDL2 + GL",
             SCREEN_WIDTH,
@@ -50,9 +49,8 @@ fn main() {
 
     // Init egui stuff
     let (mut painter, mut egui_state) = egui_backend::with_sdl2(&window, DpiScaling::Default); 
-    // DpiScaling::Custom(2.0));
     let egui_ctx = egui::Context::default();
-    let mut event_pump = sdl_context.event_pump().unwrap();
+    let mut event_pump = sdl.event_pump().unwrap();
 
     let mut test_str: String =
         "A text box to write in. Cut, copy, paste commands are available.".to_owned();
@@ -116,7 +114,7 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
-        //if !full_output..needs_repaint {
+        // TODO: correct replacement for "needs_repaint"?
         if !full_output.repaint_after.is_zero() {
             if let Some(event) = event_pump.wait_event_timeout(5) {
                 match event {
