@@ -5,7 +5,7 @@ use std::{collections::HashMap, ffi::c_void};
 
 use egui::{
     emath::Rect,
-    epaint::{Mesh, PaintCallbackInfo, Primitive, Vertex}, Vec2, Pos2,
+    epaint::{Mesh, PaintCallbackInfo, Primitive, Vertex}, Vec2,
 };
 use gl::types::{GLuint, GLint};
 use memoffset::offset_of;

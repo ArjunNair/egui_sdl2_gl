@@ -1,7 +1,7 @@
 use egui::Checkbox;
 use egui_backend::DpiScaling;
-use winapi::um::shellscalingapi::{PROCESS_PER_MONITOR_DPI_AWARE, SetProcessDpiAwareness};
 use std::time::Instant;
+use winapi::um::shellscalingapi::{SetProcessDpiAwareness, PROCESS_PER_MONITOR_DPI_AWARE};
 // Alias the backend to something less mouthful
 use egui_sdl2_gl as egui_backend;
 use sdl2::{
@@ -23,7 +23,7 @@ fn main() {
     let sdl = sdl2::init().unwrap();
     let video = sdl.video().unwrap();
     let gl_attr = video.gl_attr();
-    gl_attr.set_context_profile(GLProfile::Core);
+    gl_attr.set_context_profile(GLProfile::Compatibility);
     // On linux, OpenGL ES Mesa driver 22.0.0+ can be used like so:
     // gl_attr.set_context_profile(GLProfile::GLES);
     gl_attr.set_double_buffer(true);
@@ -48,7 +48,7 @@ fn main() {
     });
 
     // Init egui stuff
-    let (mut painter, mut egui_state) = egui_backend::with_sdl2(&window, DpiScaling::Default); 
+    let (mut painter, mut egui_state) = egui_backend::with_sdl2(&window, DpiScaling::Default);
     let egui_ctx = egui::Context::default();
     let mut event_pump = sdl.event_pump().unwrap();
 
@@ -103,7 +103,7 @@ fn main() {
         //     window.set_size(w, h).unwrap();
         // }
 
-        let paint_jobs = egui_ctx.tessellate(full_output.shapes);
+        let primitives = egui_ctx.tessellate(full_output.shapes);
 
         // An example of how OpenGL can be used to draw custom stuff with egui
         // overlaying it:
@@ -113,6 +113,8 @@ fn main() {
             gl::ClearColor(0.3, 0.6, 0.3, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
+
+        // TODO: draw something here using OpenGL directly
 
         // TODO: correct replacement for "needs_repaint"?
         if !full_output.repaint_after.is_zero() {
@@ -125,20 +127,9 @@ fn main() {
                     }
                 }
             }
-        } else {
-            //painter.paint_jobs(None, paint_jobs, &egui_ctx.font_image());
-            painter.paint_and_update_textures(paint_jobs.as_slice(), &full_output.textures_delta);
-            window.gl_swap_window();
-            for event in event_pump.poll_iter() {
-                match event {
-                    Event::Quit { .. } => break 'running,
-                    _ => {
-                        // Process input event
-                        egui_state.process_input(&window, event, &mut painter);
-                    }
-                }
-            }
         }
+        painter.paint_and_update_textures(primitives.as_slice(), &full_output.textures_delta);
+        window.gl_swap_window();
 
         if quit {
             break;

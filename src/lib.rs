@@ -10,13 +10,13 @@ pub mod painter;
 #[cfg(feature = "use_epi")]
 pub use epi;
 use painter::Painter;
+use sdl2::event::WindowEvent;
 use shader_version::ShaderVersion;
 #[cfg(feature = "use_epi")]
 use std::time::Instant;
 use {
     egui::*,
     sdl2::{
-        event::WindowEvent,
         keyboard::{Keycode, Mod},
         mouse::MouseButton,
         mouse::{Cursor, SystemCursor},
@@ -83,6 +83,7 @@ pub struct EguiStateHandler {
     pub input: RawInput,
     pub modifiers: Modifiers,
     pub native_pixels_per_point: f32,
+    pub need_repaint: bool,
 }
 
 pub fn with_sdl2(
@@ -117,6 +118,7 @@ impl EguiStateHandler {
             },
             modifiers: Modifiers::default(),
             native_pixels_per_point,
+            need_repaint: false,
         };
         (painter, _self)
     }
@@ -126,7 +128,7 @@ impl EguiStateHandler {
         window: &sdl2::video::Window,
         event: sdl2::event::Event,
         painter: &mut Painter,
-    ) {
+    )  {
         input_to_egui(window, event, painter, self);
     }
 
@@ -166,12 +168,13 @@ pub fn input_to_egui(
     match event {
         // handle when window Resized and SizeChanged.
         Window { win_event, .. } => match win_event {
-            WindowEvent::Resized(_, _) | sdl2::event::WindowEvent::SizeChanged(_, _) => {
+            WindowEvent::Resized(_, _) | WindowEvent::SizeChanged(_, _) => {
                 painter.update_screen_rect(window.drawable_size());
                 state.input.screen_rect = Some(Rect::from_min_size(
                     Pos2::new(0., 0.),
                     painter.screen_size_points(),
                 ));
+                state.need_repaint = true;
             }
             _ => (),
         },
