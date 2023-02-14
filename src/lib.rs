@@ -83,7 +83,7 @@ pub struct EguiStateHandler {
     pub input: RawInput,
     pub modifiers: Modifiers,
     pub native_pixels_per_point: f32,
-    pub need_repaint: bool,
+    //pub need_repaint: bool,
 }
 
 pub fn with_sdl2(
@@ -118,7 +118,7 @@ impl EguiStateHandler {
             },
             modifiers: Modifiers::default(),
             native_pixels_per_point,
-            need_repaint: false,
+            //need_repaint: false,
         };
         (painter, _self)
     }
@@ -174,7 +174,7 @@ pub fn input_to_egui(
                     Pos2::new(0., 0.),
                     painter.screen_size_points(),
                 ));
-                state.need_repaint = true;
+                //state.need_repaint = true;
             }
             _ => (),
         },
