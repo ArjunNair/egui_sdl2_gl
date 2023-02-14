@@ -95,14 +95,6 @@ fn main() {
         // Process ouput
         egui_state.process_output(&window, &full_output.platform_output);
 
-        // For default dpi scaling only, Update window when the size of resized window is very small (to avoid egui::CentralPanel distortions).
-        // if egui_ctx.used_size() != painter.screen_rect.size() {
-        //     println!("resized.");
-        //     let _size = egui_ctx.used_size();
-        //     let (w, h) = (_size.x as u32, _size.y as u32);
-        //     window.set_size(w, h).unwrap();
-        // }
-
         let primitives = egui_ctx.tessellate(full_output.shapes);
 
         // An example of how OpenGL can be used to draw custom stuff with egui
@@ -113,8 +105,6 @@ fn main() {
             gl::ClearColor(0.3, 0.6, 0.3, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
-
-        // TODO: draw something here using OpenGL directly
 
         // TODO: correct replacement for "needs_repaint"?
         if !full_output.repaint_after.is_zero() {
@@ -129,6 +119,9 @@ fn main() {
             }
         }
         painter.paint_and_update_textures(primitives.as_slice(), &full_output.textures_delta);
+
+        // TODO: draw something here using OpenGL directly (draws over the gui)
+
         window.gl_swap_window();
 
         if quit {
