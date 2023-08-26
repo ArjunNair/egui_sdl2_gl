@@ -6,7 +6,7 @@ use core::ptr;
 use core::str;
 use egui::{
     epaint::{Color32, FontImage, Mesh},
-    vec2, ClippedMesh, Pos2, Rect,
+    vec2, ClippedPrimitive, Pos2, Rect,
 };
 use gl::types::{GLchar, GLenum, GLint, GLsizeiptr, GLsync, GLuint};
 use std::ffi::CString;
@@ -599,7 +599,7 @@ impl Painter {
     pub fn paint_jobs(
         &mut self,
         bg_color: Option<Color32>,
-        meshes: Vec<ClippedMesh>,
+        meshes: Vec<ClippedPrimitive>,
         egui_texture: &FontImage,
     ) {
         unsafe {
@@ -646,7 +646,7 @@ impl Painter {
             let screen_x = canvas_width as f32;
             let screen_y = canvas_height as f32;
 
-            for ClippedMesh(clip_rect, mesh) in meshes {
+            for ClippedPrimitive{clip_rect, primitive: mesh} in meshes {
                 if let Some(texture_id) = self.get_texture(mesh.texture_id) {
                     gl::BindTexture(gl::TEXTURE_2D, texture_id);
                     let clip_min_x = pixels_per_point * clip_rect.min.x;
