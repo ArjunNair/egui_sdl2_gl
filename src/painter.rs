@@ -14,14 +14,14 @@ use std::ffi::CString;
 use std::os::raw::c_void;
 
 #[derive(Default)]
-struct UserTexture {
+struct Texture {
     size: (usize, usize),
 
     /// Pending upload (will be emptied later).
     pixels: Vec<u8>,
 
     /// Lazily uploaded
-    texture: Option<GLuint>,
+    gl_id: Option<GLuint>,
 
     /// For user textures there is a choice between
     /// Linear (default) and Nearest.
@@ -229,7 +229,7 @@ pub struct Painter {
     color_buffer: GLuint,
     // Call fence for sdl vsync so the CPU won't heat up if there's no heavy activity.
     pub gl_sync_fence: GLsync,
-    user_textures: AHashMap<egui::TextureId, UserTexture>,
+    textures: AHashMap<egui::TextureId, Texture>,
     pub pixels_per_point: f32,
     pub canvas_size: (u32, u32),
     pub screen_rect: Rect,
@@ -350,7 +350,7 @@ impl Painter {
                 color_buffer,
                 gl_sync_fence: gl::FenceSync(gl::SYNC_GPU_COMMANDS_COMPLETE, 0),
                 pixels_per_point,
-                user_textures: Default::default(),
+                textures: Default::default(),
                 canvas_size: (width, height),
                 screen_rect,
             }
@@ -380,11 +380,11 @@ impl Painter {
             pixels.push(srgba[3]);
         }
 
-        let id = egui::TextureId::User(self.user_textures.len() as u64);
-        self.user_textures.insert(id, UserTexture {
+        let id = egui::TextureId::User(self.textures.len() as u64);
+        self.textures.insert(id, Texture {
             size,
             pixels,
-            texture: None,
+            gl_id: None,
             filtering,
             dirty: true,
         });
@@ -399,11 +399,11 @@ impl Painter {
         rgba8_pixels: Vec<u8>,
         filtering: bool,
     ) -> egui::TextureId {
-        let id = egui::TextureId::User(self.user_textures.len() as u64);
-        self.user_textures.insert(id, UserTexture {
+        let id = egui::TextureId::User(self.textures.len() as u64);
+        self.textures.insert(id, Texture {
             size,
             pixels: rgba8_pixels,
-            texture: None,
+            gl_id: None,
             filtering,
             dirty: true,
         });
@@ -411,32 +411,32 @@ impl Painter {
         id
     }
 
-    /// fn free_user_texture() and fn free() implemented from epi both are basically the same.
-    pub fn free_user_texture(&mut self, id: egui::TextureId) {
-        if let Some(UserTexture { texture: Some(texture), .. }) = self.user_textures.get(&id)
+    /// fn free_texture() and fn free() implemented from epi both are basically the same.
+    pub fn free_texture(&mut self, id: egui::TextureId) {
+        if let Some(Texture { gl_id: Some(texture_id), .. }) = self.textures.get(&id)
         {
-            unsafe { gl::DeleteTextures(1, texture) }
-            self.user_textures.remove(&id);
+            unsafe { gl::DeleteTextures(1, texture_id) }
+            self.textures.remove(&id);
         }
     }
 
     fn upload_user_textures(&mut self) {
         unsafe {
-            for (id, user_texture) in self.user_textures.iter_mut() {
-                if !user_texture.dirty {
+            for (id, texture) in self.textures.iter_mut() {
+                if !texture.dirty {
                     continue;
                 }
 
-                let pixels = std::mem::take(&mut user_texture.pixels);
+                let pixels = std::mem::take(&mut texture.pixels);
 
-                if user_texture.texture.is_none() {
-                    let mut gl_texture = 0;
-                    gl::GenTextures(1, &mut gl_texture);
-                    gl::BindTexture(gl::TEXTURE_2D, gl_texture);
+                if texture.gl_id.is_none() {
+                    let mut gl_id = 0;
+                    gl::GenTextures(1, &mut gl_id);
+                    gl::BindTexture(gl::TEXTURE_2D, gl_id);
                     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
                     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
 
-                    if user_texture.filtering {
+                    if texture.filtering {
                         gl::TexParameteri(
                             gl::TEXTURE_2D,
                             gl::TEXTURE_MIN_FILTER,
@@ -459,9 +459,9 @@ impl Painter {
                             gl::NEAREST as i32,
                         );
                     }
-                    user_texture.texture = Some(gl_texture);
+                    texture.gl_id = Some(gl_id);
                 } else {
-                    gl::BindTexture(gl::TEXTURE_2D, user_texture.texture.unwrap());
+                    gl::BindTexture(gl::TEXTURE_2D, texture.gl_id.unwrap());
                 }
 
                 let level = 0;
@@ -474,21 +474,21 @@ impl Painter {
                     gl::TEXTURE_2D,
                     level,
                     internal_format as i32,
-                    user_texture.size.0 as i32,
-                    user_texture.size.1 as i32,
+                    texture.size.0 as i32,
+                    texture.size.1 as i32,
                     border,
                     src_format,
                     src_type,
                     pixels.as_ptr() as *const c_void,
                 );
 
-                user_texture.dirty = false;
+                texture.dirty = false;
             }
         }
     }
 
     pub fn update_user_texture_data(&mut self, id: egui::TextureId, _pixels: &[Color32]) {
-        if let Some(UserTexture { pixels, dirty, .. }) = self.user_textures.get_mut(&id) {
+        if let Some(Texture { pixels, dirty, .. }) = self.textures.get_mut(&id) {
             *pixels = Vec::with_capacity(pixels.len() * 4);
 
             for p in _pixels {
@@ -508,7 +508,7 @@ impl Painter {
         id: egui::TextureId,
         rgba8_pixels: Vec<u8>,
     ) {
-        if let Some(UserTexture { pixels, dirty, .. }) = self.user_textures.get_mut(&id) {
+        if let Some(Texture { pixels, dirty, .. }) = self.textures.get_mut(&id) {
             *pixels = rgba8_pixels;
             *dirty = true
         };
@@ -517,6 +517,7 @@ impl Painter {
     pub fn paint_jobs(
         &mut self,
         bg_color: Option<Color32>,
+        textures_delta: egui::TexturesDelta,
         primitives: Vec<ClippedPrimitive>
     ) {
         unsafe {
@@ -568,14 +569,14 @@ impl Painter {
             for ClippedPrimitive{clip_rect, primitive} in primitives {
                 match primitive {
                     Primitive::Mesh(mesh) => {
-                        if let Some(UserTexture {
+                        if let Some(Texture {
                             size,
                             pixels,
-                            texture,
+                            gl_id,
                             filtering,
                             dirty
-                        }) = self.user_textures.get(&mesh.texture_id) {
-                            if let Some(texture_gl_id) = texture {
+                        }) = self.textures.get(&mesh.texture_id) {
+                            if let Some(texture_gl_id) = gl_id {
                                 gl::BindTexture(gl::TEXTURE_2D, *texture_gl_id);
 
                                 let clip_min_x = pixels_per_point * clip_rect.min.x;
@@ -742,8 +743,8 @@ impl Painter {
     pub fn cleanup(&self) {
         unsafe {
             gl::DeleteSync(self.gl_sync_fence);
-            for (_, user_texture) in self.user_textures.iter() {
-                if let Some(texture_gl_id) = user_texture.texture {
+            for (_, texture) in self.textures.iter() {
+                if let Some(texture_gl_id) = texture.gl_id {
                     gl::DeleteTextures(1, &texture_gl_id);
                 }
             }

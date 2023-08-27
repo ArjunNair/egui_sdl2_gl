@@ -145,7 +145,7 @@ fn main() {
         // Use this only if egui is being used for all drawing and you aren't mixing your own Open GL
         // drawing calls with it.
         // Since we are custom drawing an OpenGL Triangle we don't need egui to clear the background.
-        painter.paint_jobs(None, paint_jobs);
+        painter.paint_jobs(None, textures_delta, paint_jobs);
 
         window.gl_swap_window();
 
