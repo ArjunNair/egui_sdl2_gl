@@ -420,9 +420,83 @@ impl Painter {
         }
     }
 
+    fn upload_egui_texture(&mut self, id: egui::TextureId, delta: &egui::epaint::ImageDelta) {
+        // Modelled after egui_glium's set_texture().
+        // From: https://github.com/emilk/egui/blob/
+        //               34e6e12f002e7b477a8e8af6032097b00b96deea/crates/egui_glium/src/painter.rs
+        let pixels: Vec<egui::Color32> = match &delta.image {
+            egui::ImageData::Color(image) => image.pixels.iter().map(|colour| colour.clone()).collect(),
+            egui::ImageData::Font(image) => image.srgba_pixels(None).collect()
+        };
+        let texture_width = delta.image.width();
+        let texture_height = delta.image.height();
+
+        if let Some(patch_pos) = delta.pos {
+            if let Some(texture) = self.textures.get_mut(&id) {
+                // Update a region of the texture.
+                const NUM_CHANNELS: usize = 4usize; // RGBA
+
+                // Note that patch_x and patch_y starts somewhere in the texture
+                // already.
+                let patch_x = patch_pos[0];
+                let patch_y = patch_pos[1];
+                let patch_width = texture_width;
+                let patch_height = texture_height;
+                for y in patch_y..patch_height {
+                    for x in patch_x..patch_width {
+                        let texture_idx = (patch_width * y) + (x * NUM_CHANNELS);
+                        let patch_idx = (patch_width * y) + x;
+                        texture.pixels[texture_idx] = pixels[patch_idx].r();
+                        texture.pixels[texture_idx + 1] = pixels[patch_idx].g();
+                        texture.pixels[texture_idx + 2] = pixels[patch_idx].b();
+                        texture.pixels[texture_idx + 3] = pixels[patch_idx].a();
+                    }
+                }
+            }
+        } else {
+            let mut texture_gl_id = 0;
+            let texture_pixels: Vec<u8> = pixels.iter().map(|colour| colour.to_array()).flatten().collect();
+            unsafe {
+                gl::GenTextures(1, &mut texture_gl_id);
+                gl::BindTexture(gl::TEXTURE_2D, texture_gl_id);
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+                
+                let mipmap_level = 0;
+                let internal_format = gl::RGBA;
+                let border = 0;
+                let src_format = gl::RGBA;
+                let src_type = gl::UNSIGNED_BYTE;
+
+                gl::TexImage2D(
+                    gl::TEXTURE_2D,
+                    mipmap_level,
+                    internal_format as i32,
+                    texture_width as i32,
+                    texture_height as i32,
+                    border,
+                    src_format,
+                    src_type,
+                    texture_pixels.as_ptr() as *const gl::types::GLvoid,
+                );
+            }
+            
+            
+            self.textures.insert(id, Texture {
+                size: (texture_width, texture_height),
+                pixels: texture_pixels,
+                gl_id: Some(texture_gl_id),
+                filtering: true,
+                dirty: false,
+            });
+        }
+    }
+
     fn upload_user_textures(&mut self) {
         unsafe {
-            for (id, texture) in self.textures.iter_mut() {
+            for (_, texture) in self.textures.iter_mut() {
                 if !texture.dirty {
                     continue;
                 }
@@ -523,6 +597,10 @@ impl Painter {
         unsafe {
             gl::PixelStorei(gl::UNPACK_ROW_LENGTH, 0);
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 4);
+        }
+
+        for (texture_id, delta) in textures_delta.set {
+            self.upload_egui_texture(texture_id, &delta);
         }
         
         self.upload_user_textures();
