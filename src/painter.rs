@@ -5,7 +5,7 @@ use core::mem;
 use core::ptr;
 use core::str;
 use egui::{
-    epaint::{Color32, FontImage, Mesh},
+    epaint::{Color32, FontImage, Mesh, Primitive},
     vec2, ClippedPrimitive, Pos2, Rect,
 };
 use gl::types::{GLchar, GLenum, GLint, GLsizeiptr, GLsync, GLuint};
@@ -226,10 +226,8 @@ pub struct Painter {
     pos_buffer: GLuint,
     tc_buffer: GLuint,
     color_buffer: GLuint,
-    egui_texture: GLuint,
     // Call fence for sdl vsync so the CPU won't heat up if there's no heavy activity.
     pub gl_sync_fence: GLsync,
-    egui_texture_version: Option<u64>,
     user_textures: Vec<Option<UserTexture>>,
     pub pixels_per_point: f32,
     pub canvas_size: (u32, u32),
@@ -307,10 +305,7 @@ pub fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
 impl Painter {
     pub fn new(window: &sdl2::video::Window, scale: f32, shader_ver: ShaderVersion) -> Painter {
         unsafe {
-            let mut egui_texture = 0;
             gl::load_with(|name| window.subsystem().gl_get_proc_address(name) as *const _);
-            gl::GenTextures(1, &mut egui_texture);
-            gl::BindTexture(gl::TEXTURE_2D, egui_texture);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
@@ -352,10 +347,8 @@ impl Painter {
                 pos_buffer,
                 tc_buffer,
                 color_buffer,
-                egui_texture,
                 gl_sync_fence: gl::FenceSync(gl::SYNC_GPU_COMMANDS_COMPLETE, 0),
                 pixels_per_point,
-                egui_texture_version: None,
                 user_textures: Default::default(),
                 canvas_size: (width, height),
                 screen_rect,
@@ -432,44 +425,6 @@ impl Painter {
         }
     }
 
-    fn upload_egui_texture(&mut self, texture: &FontImage) {
-        if self.egui_texture_version == Some(texture.version) {
-            return; // No change
-        }
-
-        let mut pixels: Vec<u8> = Vec::with_capacity(texture.pixels.len() * 4);
-        for &alpha in &texture.pixels {
-            let srgba = Color32::from_white_alpha(alpha);
-            pixels.push(srgba[0]);
-            pixels.push(srgba[1]);
-            pixels.push(srgba[2]);
-            pixels.push(srgba[3]);
-        }
-
-        unsafe {
-            gl::BindTexture(gl::TEXTURE_2D, self.egui_texture);
-
-            let level = 0;
-            let internal_format = gl::RGBA;
-            let border = 0;
-            let src_format = gl::RGBA;
-            let src_type = gl::UNSIGNED_BYTE;
-            gl::TexImage2D(
-                gl::TEXTURE_2D,
-                level,
-                internal_format as i32,
-                texture.width as i32,
-                texture.height as i32,
-                border,
-                src_format,
-                src_type,
-                pixels.as_ptr() as *const c_void,
-            );
-
-            self.egui_texture_version = Some(texture.version);
-        }
-    }
-
     fn upload_user_textures(&mut self) {
         unsafe {
             for user_texture in self.user_textures.iter_mut().flatten() {
@@ -539,7 +494,7 @@ impl Painter {
 
     fn get_texture(&self, texture_id: egui::TextureId) -> Option<GLuint> {
         match texture_id {
-            egui::TextureId::Egui => Some(self.egui_texture),
+            egui::TextureId::Managed(_) => None,
             egui::TextureId::User(id) => {
                 let id = id as usize;
                 if id < self.user_textures.len() {
@@ -554,7 +509,7 @@ impl Painter {
 
     pub fn update_user_texture_data(&mut self, texture_id: egui::TextureId, _pixels: &[Color32]) {
         match texture_id {
-            egui::TextureId::Egui => {}
+            egui::TextureId::Managed(_) => {}
             egui::TextureId::User(id) => {
                 let id = id as usize;
                 assert!(id < self.user_textures.len());
@@ -583,7 +538,7 @@ impl Painter {
         rgba8_pixels: Vec<u8>,
     ) {
         match texture_id {
-            egui::TextureId::Egui => {}
+            egui::TextureId::Managed(_) => {}
             egui::TextureId::User(id) => {
                 let id = id as usize;
                 if id < self.user_textures.len() {
@@ -599,15 +554,13 @@ impl Painter {
     pub fn paint_jobs(
         &mut self,
         bg_color: Option<Color32>,
-        meshes: Vec<ClippedPrimitive>,
-        egui_texture: &FontImage,
+        primitives: Vec<ClippedPrimitive>
     ) {
         unsafe {
             gl::PixelStorei(gl::UNPACK_ROW_LENGTH, 0);
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 4);
         }
-
-        self.upload_egui_texture(egui_texture);
+        
         self.upload_user_textures();
 
         let (canvas_width, canvas_height) = self.canvas_size;
@@ -636,41 +589,49 @@ impl Painter {
             let u_screen_size = CString::new("u_screen_size").unwrap();
             let u_screen_size_ptr = u_screen_size.as_ptr();
             let u_screen_size_loc = gl::GetUniformLocation(self.program, u_screen_size_ptr);
+
             let (x, y) = (self.screen_rect.width(), self.screen_rect.height());
             gl::Uniform2f(u_screen_size_loc, x, y);
+            
             let u_sampler = CString::new("u_sampler").unwrap();
             let u_sampler_ptr = u_sampler.as_ptr();
             let u_sampler_loc = gl::GetUniformLocation(self.program, u_sampler_ptr);
             gl::Uniform1i(u_sampler_loc, 0);
             gl::Viewport(0, 0, canvas_width as i32, canvas_height as i32);
+
             let screen_x = canvas_width as f32;
             let screen_y = canvas_height as f32;
 
-            for ClippedPrimitive{clip_rect, primitive: mesh} in meshes {
-                if let Some(texture_id) = self.get_texture(mesh.texture_id) {
-                    gl::BindTexture(gl::TEXTURE_2D, texture_id);
-                    let clip_min_x = pixels_per_point * clip_rect.min.x;
-                    let clip_min_y = pixels_per_point * clip_rect.min.y;
-                    let clip_max_x = pixels_per_point * clip_rect.max.x;
-                    let clip_max_y = pixels_per_point * clip_rect.max.y;
-                    let clip_min_x = clip_min_x.clamp(0.0, x);
-                    let clip_min_y = clip_min_y.clamp(0.0, y);
-                    let clip_max_x = clip_max_x.clamp(clip_min_x, screen_x);
-                    let clip_max_y = clip_max_y.clamp(clip_min_y, screen_y);
-                    let clip_min_x = clip_min_x.round() as i32;
-                    let clip_min_y = clip_min_y.round() as i32;
-                    let clip_max_x = clip_max_x.round() as i32;
-                    let clip_max_y = clip_max_y.round() as i32;
+            for ClippedPrimitive{clip_rect, primitive} in primitives {
+                match primitive {
+                    Primitive::Mesh(mesh) => {
+                        if let Some(texture_id) = self.get_texture(mesh.texture_id) {
+                            gl::BindTexture(gl::TEXTURE_2D, texture_id);
+                            let clip_min_x = pixels_per_point * clip_rect.min.x;
+                            let clip_min_y = pixels_per_point * clip_rect.min.y;
+                            let clip_max_x = pixels_per_point * clip_rect.max.x;
+                            let clip_max_y = pixels_per_point * clip_rect.max.y;
+                            let clip_min_x = clip_min_x.clamp(0.0, x);
+                            let clip_min_y = clip_min_y.clamp(0.0, y);
+                            let clip_max_x = clip_max_x.clamp(clip_min_x, screen_x);
+                            let clip_max_y = clip_max_y.clamp(clip_min_y, screen_y);
+                            let clip_min_x = clip_min_x.round() as i32;
+                            let clip_min_y = clip_min_y.round() as i32;
+                            let clip_max_x = clip_max_x.round() as i32;
+                            let clip_max_y = clip_max_y.round() as i32;
 
-                    //scissor Y coordinate is from the bottom
-                    gl::Scissor(
-                        clip_min_x,
-                        canvas_height as i32 - clip_max_y,
-                        clip_max_x - clip_min_x,
-                        clip_max_y - clip_min_y,
-                    );
+                            //scissor Y coordinate is from the bottom
+                            gl::Scissor(
+                                clip_min_x,
+                                canvas_height as i32 - clip_max_y,
+                                clip_max_x - clip_min_x,
+                                clip_max_y - clip_min_y,
+                            );
 
-                    self.paint_mesh(&mesh);
+                            self.paint_mesh(&mesh);
+                        }
+                    },
+                    Primitive::Callback(_) => panic!("custom rendering not yet supported")
                 }
             }
 
@@ -820,7 +781,6 @@ impl Painter {
             gl::DeleteBuffers(1, &self.tc_buffer);
             gl::DeleteBuffers(1, &self.color_buffer);
             gl::DeleteBuffers(1, &self.index_buffer);
-            gl::DeleteTextures(1, &self.egui_texture);
             gl::DeleteVertexArrays(1, &self.vertex_array);
         }
     }
