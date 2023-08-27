@@ -13,6 +13,7 @@ keywords = ["sdl2", "opengl", "egui", "gui", "gamedev"]
 include = ["**/*.rs", "Cargo.toml"]
 
 [dependencies]
+ahash = "0.8.3"
 gl = "0.14.0"
 egui = "0.22.0"
 sdl2 = { version = "0.35.2", features = ["bundled"] }

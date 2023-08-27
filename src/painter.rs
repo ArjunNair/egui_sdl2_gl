@@ -4,6 +4,7 @@ use crate::ShaderVersion;
 use core::mem;
 use core::ptr;
 use core::str;
+use ahash::AHashMap;
 use egui::{
     epaint::{Color32, FontImage, Mesh, Primitive},
     vec2, ClippedPrimitive, Pos2, Rect,
@@ -228,7 +229,7 @@ pub struct Painter {
     color_buffer: GLuint,
     // Call fence for sdl vsync so the CPU won't heat up if there's no heavy activity.
     pub gl_sync_fence: GLsync,
-    user_textures: Vec<Option<UserTexture>>,
+    user_textures: AHashMap<egui::TextureId, UserTexture>,
     pub pixels_per_point: f32,
     pub canvas_size: (u32, u32),
     pub screen_rect: Rect,
@@ -380,13 +381,14 @@ impl Painter {
         }
 
         let id = egui::TextureId::User(self.user_textures.len() as u64);
-        self.user_textures.push(Some(UserTexture {
+        self.user_textures.insert(id, UserTexture {
             size,
             pixels,
             texture: None,
             filtering,
             dirty: true,
-        }));
+        });
+
         id
     }
 
@@ -398,36 +400,29 @@ impl Painter {
         filtering: bool,
     ) -> egui::TextureId {
         let id = egui::TextureId::User(self.user_textures.len() as u64);
-        self.user_textures.push(Some(UserTexture {
+        self.user_textures.insert(id, UserTexture {
             size,
             pixels: rgba8_pixels,
             texture: None,
             filtering,
             dirty: true,
-        }));
+        });
+
         id
     }
 
     /// fn free_user_texture() and fn free() implemented from epi both are basically the same.
     pub fn free_user_texture(&mut self, id: egui::TextureId) {
-        if let egui::TextureId::User(id) = id {
-            let idx = id as usize;
-            if idx < self.user_textures.len() {
-                if let Some(UserTexture {
-                    texture: Some(texture),
-                    ..
-                }) = self.user_textures[idx].as_mut()
-                {
-                    unsafe { gl::DeleteTextures(1, texture) }
-                }
-                self.user_textures[idx] = None
-            }
+        if let Some(UserTexture { texture: Some(texture), .. }) = self.user_textures.get(&id)
+        {
+            unsafe { gl::DeleteTextures(1, texture) }
+            self.user_textures.remove(&id);
         }
     }
 
     fn upload_user_textures(&mut self) {
         unsafe {
-            for user_texture in self.user_textures.iter_mut().flatten() {
+            for (id, user_texture) in self.user_textures.iter_mut() {
                 if !user_texture.dirty {
                     continue;
                 }
@@ -492,63 +487,31 @@ impl Painter {
         }
     }
 
-    fn get_texture(&self, texture_id: egui::TextureId) -> Option<GLuint> {
-        match texture_id {
-            egui::TextureId::Managed(_) => None,
-            egui::TextureId::User(id) => {
-                let id = id as usize;
-                if id < self.user_textures.len() {
-                    if let Some(user_texture) = &self.user_textures[id] {
-                        return user_texture.texture;
-                    }
-                }
-                None
+    pub fn update_user_texture_data(&mut self, id: egui::TextureId, _pixels: &[Color32]) {
+        if let Some(UserTexture { pixels, dirty, .. }) = self.user_textures.get_mut(&id) {
+            *pixels = Vec::with_capacity(pixels.len() * 4);
+
+            for p in _pixels {
+                pixels.push(p[0]);
+                pixels.push(p[1]);
+                pixels.push(p[2]);
+                pixels.push(p[3]);
             }
-        }
-    }
 
-    pub fn update_user_texture_data(&mut self, texture_id: egui::TextureId, _pixels: &[Color32]) {
-        match texture_id {
-            egui::TextureId::Managed(_) => {}
-            egui::TextureId::User(id) => {
-                let id = id as usize;
-                assert!(id < self.user_textures.len());
-                if let Some(UserTexture { pixels, dirty, .. }) = &mut self.user_textures[id] {
-                    {
-                        *pixels = Vec::with_capacity(pixels.len() * 4);
-                    }
-
-                    for p in _pixels {
-                        pixels.push(p[0]);
-                        pixels.push(p[1]);
-                        pixels.push(p[2]);
-                        pixels.push(p[3]);
-                    }
-
-                    *dirty = true;
-                }
-            }
+            *dirty = true;
         }
     }
 
     /// Updates texture rgba8 data
     pub fn update_user_texture_rgba8_data(
         &mut self,
-        texture_id: egui::TextureId,
+        id: egui::TextureId,
         rgba8_pixels: Vec<u8>,
     ) {
-        match texture_id {
-            egui::TextureId::Managed(_) => {}
-            egui::TextureId::User(id) => {
-                let id = id as usize;
-                if id < self.user_textures.len() {
-                    if let Some(user_textures) = self.user_textures[id].as_mut() {
-                        user_textures.pixels = rgba8_pixels;
-                        user_textures.dirty = true
-                    }
-                }
-            }
-        }
+        if let Some(UserTexture { pixels, dirty, .. }) = self.user_textures.get_mut(&id) {
+            *pixels = rgba8_pixels;
+            *dirty = true
+        };
     }
 
     pub fn paint_jobs(
@@ -605,30 +568,39 @@ impl Painter {
             for ClippedPrimitive{clip_rect, primitive} in primitives {
                 match primitive {
                     Primitive::Mesh(mesh) => {
-                        if let Some(texture_id) = self.get_texture(mesh.texture_id) {
-                            gl::BindTexture(gl::TEXTURE_2D, texture_id);
-                            let clip_min_x = pixels_per_point * clip_rect.min.x;
-                            let clip_min_y = pixels_per_point * clip_rect.min.y;
-                            let clip_max_x = pixels_per_point * clip_rect.max.x;
-                            let clip_max_y = pixels_per_point * clip_rect.max.y;
-                            let clip_min_x = clip_min_x.clamp(0.0, x);
-                            let clip_min_y = clip_min_y.clamp(0.0, y);
-                            let clip_max_x = clip_max_x.clamp(clip_min_x, screen_x);
-                            let clip_max_y = clip_max_y.clamp(clip_min_y, screen_y);
-                            let clip_min_x = clip_min_x.round() as i32;
-                            let clip_min_y = clip_min_y.round() as i32;
-                            let clip_max_x = clip_max_x.round() as i32;
-                            let clip_max_y = clip_max_y.round() as i32;
+                        if let Some(UserTexture {
+                            size,
+                            pixels,
+                            texture,
+                            filtering,
+                            dirty
+                        }) = self.user_textures.get(&mesh.texture_id) {
+                            if let Some(texture_gl_id) = texture {
+                                gl::BindTexture(gl::TEXTURE_2D, *texture_gl_id);
 
-                            //scissor Y coordinate is from the bottom
-                            gl::Scissor(
-                                clip_min_x,
-                                canvas_height as i32 - clip_max_y,
-                                clip_max_x - clip_min_x,
-                                clip_max_y - clip_min_y,
-                            );
+                                let clip_min_x = pixels_per_point * clip_rect.min.x;
+                                let clip_min_y = pixels_per_point * clip_rect.min.y;
+                                let clip_max_x = pixels_per_point * clip_rect.max.x;
+                                let clip_max_y = pixels_per_point * clip_rect.max.y;
+                                let clip_min_x = clip_min_x.clamp(0.0, x);
+                                let clip_min_y = clip_min_y.clamp(0.0, y);
+                                let clip_max_x = clip_max_x.clamp(clip_min_x, screen_x);
+                                let clip_max_y = clip_max_y.clamp(clip_min_y, screen_y);
+                                let clip_min_x = clip_min_x.round() as i32;
+                                let clip_min_y = clip_min_y.round() as i32;
+                                let clip_max_x = clip_max_x.round() as i32;
+                                let clip_max_y = clip_max_y.round() as i32;
 
-                            self.paint_mesh(&mesh);
+                                //scissor Y coordinate is from the bottom
+                                gl::Scissor(
+                                    clip_min_x,
+                                    canvas_height as i32 - clip_max_y,
+                                    clip_max_x - clip_min_x,
+                                    clip_max_y - clip_min_y,
+                                );
+
+                                self.paint_mesh(&mesh);
+                            }
                         }
                     },
                     Primitive::Callback(_) => panic!("custom rendering not yet supported")
@@ -770,9 +742,9 @@ impl Painter {
     pub fn cleanup(&self) {
         unsafe {
             gl::DeleteSync(self.gl_sync_fence);
-            for user in self.user_textures.iter().flatten() {
-                if user.texture.is_some() {
-                    gl::DeleteTextures(1, &user.texture.unwrap());
+            for (_, user_texture) in self.user_textures.iter() {
+                if let Some(texture_gl_id) = user_texture.texture {
+                    gl::DeleteTextures(1, &texture_gl_id);
                 }
             }
 
