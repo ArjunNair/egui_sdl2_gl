@@ -110,7 +110,7 @@ fn main() {
         painter.paint_jobs(None, textures_delta, paint_jobs);
         window.gl_swap_window();
 
-        if repaint_after.is_zero() {
+        if !repaint_after.is_zero() {
             if let Some(event) = event_pump.wait_event_timeout(5) {
                 match event {
                     Event::Quit { .. } => break 'running,
