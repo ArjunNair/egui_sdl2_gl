@@ -124,7 +124,11 @@ impl EguiStateHandler {
         input_to_egui(window, event, painter, self);
     }
 
-    pub fn process_output(&mut self, window: &sdl2::video::Window, egui_output: &egui::PlatformOutput) {
+    pub fn process_output(
+        &mut self,
+        window: &sdl2::video::Window,
+        egui_output: &egui::PlatformOutput,
+    ) {
         if !egui_output.copied_text.is_empty() {
             let copied_text = egui_output.copied_text.clone();
             {
@@ -208,7 +212,10 @@ pub fn input_to_egui(
         }
 
         KeyUp {
-            keycode, keymod, repeat, ..
+            keycode,
+            keymod,
+            repeat,
+            ..
         } => {
             let key_code = match keycode {
                 Some(key_code) => key_code,
@@ -241,7 +248,10 @@ pub fn input_to_egui(
         }
 
         KeyDown {
-            keycode, keymod, repeat, ..
+            keycode,
+            keymod,
+            repeat,
+            ..
         } => {
             let key_code = match keycode {
                 Some(key_code) => key_code,

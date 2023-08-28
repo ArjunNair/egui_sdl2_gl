@@ -135,7 +135,12 @@ fn main() {
             }
         });
 
-        let FullOutput{platform_output, repaint_after, textures_delta, shapes} = egui_ctx.end_frame();
+        let FullOutput {
+            platform_output,
+            repaint_after,
+            textures_delta,
+            shapes,
+        } = egui_ctx.end_frame();
         // Process ouput
         egui_state.process_output(&window, &platform_output);
 
