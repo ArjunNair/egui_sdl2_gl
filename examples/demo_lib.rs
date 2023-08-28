@@ -3,7 +3,7 @@ compile_error!("feature \"use_epi\" must be used");
 
 use egui_backend::{
     egui::{self, FullOutput},
-    epi::{App, Frame, IntegrationInfo},
+    epi::{Frame, IntegrationInfo},
     get_frame_time, gl, sdl2,
     sdl2::event::Event,
     sdl2::video::GLProfile,
@@ -58,7 +58,7 @@ fn main() {
     let (mut painter, mut egui_state) =
         egui_backend::with_sdl2(&window, ShaderVersion::Default, DpiScaling::Custom(1.25));
     let mut demo_windows = egui_demo_lib::DemoWindows::default();
-    let mut egui_ctx = egui::Context::default();
+    let egui_ctx = egui::Context::default();
     let mut event_pump = sdl_context.event_pump().unwrap();
     let start_time = Instant::now();
     let repaint_signal = Arc::new(Signal::default());
@@ -68,7 +68,7 @@ fn main() {
         egui_ctx.begin_frame(egui_state.input.take());
         // Begin frame
         let frame_time = get_frame_time(start_time);
-        let mut frame = Frame::new(FrameData {
+        let frame = Frame::new(FrameData {
             info: IntegrationInfo {
                 web_info: None,
                 cpu_usage: Some(frame_time),
