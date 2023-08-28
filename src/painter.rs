@@ -690,6 +690,10 @@ impl Painter {
             gl::Disable(gl::FRAMEBUFFER_SRGB);
             gl::Disable(gl::BLEND);
         }
+
+        for texture_id in textures_delta.free {
+            self.free_texture(texture_id);
+        }
     }
 
     fn paint_mesh(&self, mesh: &Mesh) {
