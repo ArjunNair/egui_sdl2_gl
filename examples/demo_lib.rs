@@ -2,7 +2,7 @@
 compile_error!("feature \"use_epi\" must be used");
 
 use egui_backend::{
-    egui,
+    egui::{self, FullOutput},
     epi::{App, Frame, IntegrationInfo},
     get_frame_time, gl, sdl2,
     sdl2::event::Event,
@@ -57,8 +57,8 @@ fn main() {
     // Init egui stuff
     let (mut painter, mut egui_state) =
         egui_backend::with_sdl2(&window, ShaderVersion::Default, DpiScaling::Custom(1.25));
-    let mut app = egui_demo_lib::WrapApp::default();
-    let mut egui_ctx = egui::CtxRef::default();
+    let mut demo_windows = egui_demo_lib::DemoWindows::default();
+    let mut egui_ctx = egui::Context::default();
     let mut event_pump = sdl_context.event_pump().unwrap();
     let start_time = Instant::now();
     let repaint_signal = Arc::new(Signal::default());
@@ -80,16 +80,22 @@ fn main() {
             repaint_signal: repaint_signal.clone(),
         });
 
-        app.update(&egui_ctx, &mut frame);
-        let (egui_output, paint_cmds) = egui_ctx.end_frame();
+        demo_windows.ui(&egui_ctx);
+        
+        let FullOutput {
+            platform_output,
+            repaint_after,
+            textures_delta,
+            shapes,
+        } = egui_ctx.end_frame();
         // Process ouput
-        egui_state.process_output(&window, &egui_output);
+        egui_state.process_output(&window, &platform_output);
         // Quite if needed.
         if frame.take_app_output().quit {
             break 'running;
         }
 
-        if !egui_output.needs_repaint {
+        if !repaint_after.is_zero() {
             // Reactive every 1 second.
             if let Some(event) = event_pump.wait_event_timeout(1000) {
                 match event {
@@ -120,7 +126,7 @@ fn main() {
         //     window.set_size(w, h).unwrap();
         // }
 
-        let paint_jobs = egui_ctx.tessellate(paint_cmds);
+        let paint_jobs = egui_ctx.tessellate(shapes);
 
         // An example of how OpenGL can be used to draw custom stuff with egui
         // overlaying it:
@@ -131,7 +137,7 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
-        painter.paint_jobs(None, paint_jobs, &egui_ctx.font_image());
+        painter.paint_jobs(None, textures_delta, paint_jobs);
         window.gl_swap_window();
     }
 }

@@ -142,7 +142,7 @@ fn main() {
             textures_delta,
             shapes,
         } = egui_ctx.end_frame();
-        // Process ouput
+        // Process output
         egui_state.process_output(&window, &platform_output);
 
         let paint_jobs = egui_ctx.tessellate(shapes);
