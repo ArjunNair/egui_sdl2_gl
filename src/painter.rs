@@ -6,12 +6,11 @@ use core::mem;
 use core::ptr;
 use core::str;
 use egui::{
-    epaint::{Color32, FontImage, Mesh, Primitive},
+    epaint::{Color32, Mesh, Primitive},
     vec2, ClippedPrimitive, Pos2, Rect,
 };
 use gl::types::{GLchar, GLenum, GLint, GLsizeiptr, GLsync, GLuint};
 use std::ffi::CString;
-use std::os::raw::c_void;
 
 #[derive(Default)]
 struct Texture {
@@ -515,14 +514,7 @@ impl Painter {
             {
                 match primitive {
                     Primitive::Mesh(mesh) => {
-                        if let Some(Texture {
-                            size,
-                            pixels,
-                            gl_id,
-                            filtering,
-                            dirty,
-                        }) = self.textures.get(&mesh.texture_id)
-                        {
+                        if let Some(Texture { gl_id, .. }) = self.textures.get(&mesh.texture_id) {
                             if let Some(texture_gl_id) = gl_id {
                                 gl::BindTexture(gl::TEXTURE_2D, *texture_gl_id);
 
@@ -587,48 +579,62 @@ impl Painter {
         // Modelled after egui_glium's set_texture().
         // From: https://github.com/emilk/egui/blob/
         //               34e6e12f002e7b477a8e8af6032097b00b96deea/crates/egui_glium/src/painter.rs
-        let pixels: Vec<egui::Color32> = match &delta.image {
+        let pixels: Vec<u8> = match &delta.image {
             egui::ImageData::Color(image) => {
-                image.pixels.iter().map(|colour| colour.clone()).collect()
+                assert_eq!(
+                    image.width() * image.height(),
+                    image.pixels.len(),
+                    "Mismatch between texture size and texel count"
+                );
+
+                image
+                    .pixels
+                    .iter()
+                    .map(|colour| colour.to_array())
+                    .flatten()
+                    .collect()
             }
-            egui::ImageData::Font(image) => image.srgba_pixels(None).collect(),
+            egui::ImageData::Font(image) => image
+                .srgba_pixels(None)
+                .map(|colour| colour.to_array())
+                .flatten()
+                .collect(),
         };
         let texture_width = delta.image.width();
         let texture_height = delta.image.height();
 
         if let Some(patch_pos) = delta.pos {
             if let Some(texture) = self.textures.get_mut(&id) {
-                // Update a region of the texture.
-                const NUM_CHANNELS: usize = 4usize; // RGBA
-
-                // Note that patch_x and patch_y starts somewhere in the texture
-                // already.
                 let patch_x = patch_pos[0];
                 let patch_y = patch_pos[1];
                 let patch_width = texture_width;
                 let patch_height = texture_height;
-                for y in patch_y..patch_height {
-                    for x in patch_x..patch_width {
-                        let texture_idx = (patch_width * y) + (x * NUM_CHANNELS);
-                        let patch_idx = (patch_width * y) + x;
-                        texture.pixels[texture_idx] = pixels[patch_idx].r();
-                        texture.pixels[texture_idx + 1] = pixels[patch_idx].g();
-                        texture.pixels[texture_idx + 2] = pixels[patch_idx].b();
-                        texture.pixels[texture_idx + 3] = pixels[patch_idx].a();
+                if texture.gl_id.is_some() {
+                    unsafe {
+                        let mipmap_level = 0;
+                        let internal_format = gl::RGBA;
+                        let texture_type = gl::UNSIGNED_BYTE;
+
+                        gl::TexSubImage2D(
+                            texture.gl_id.unwrap(),
+                            mipmap_level,
+                            patch_x as i32,
+                            patch_y as i32,
+                            patch_width as i32,
+                            patch_height as i32,
+                            internal_format,
+                            texture_type,
+                            pixels.as_ptr() as *const gl::types::GLvoid,
+                        );
                     }
                 }
             }
         } else {
-            let texture_pixels: Vec<u8> = pixels
-                .iter()
-                .map(|colour| colour.to_array())
-                .flatten()
-                .collect();
             let texture_filtering: bool = true;
             let mut texture_gl_id = Option::None;
             Self::generate_gl_texture2d(
                 &mut texture_gl_id,
-                &texture_pixels,
+                &pixels,
                 texture_width as i32,
                 texture_height as i32,
                 texture_filtering,
@@ -638,7 +644,7 @@ impl Painter {
                 id,
                 Texture {
                     size: (texture_width, texture_height),
-                    pixels: texture_pixels,
+                    pixels: pixels,
                     gl_id: texture_gl_id,
                     filtering: true,
                     dirty: false,
