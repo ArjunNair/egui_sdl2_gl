@@ -1,4 +1,5 @@
 use std::time::Instant;
+
 //Alias the backend to something less mouthful
 use egui_backend::egui::{vec2, Color32, FullOutput, Image};
 use egui_backend::sdl2::video::GLProfile;
@@ -54,7 +55,7 @@ fn main() {
     // Init egui stuff
     let (mut painter, mut egui_state) =
         egui_backend::with_sdl2(&window, ShaderVersion::Default, DpiScaling::Default);
-    let mut egui_ctx = egui::Context::default();
+    let egui_ctx = egui::Context::default();
     let mut event_pump: sdl2::EventPump = sdl_context.event_pump().unwrap();
     let mut srgba: Vec<Color32> = Vec::new();
 

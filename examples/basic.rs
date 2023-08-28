@@ -1,6 +1,7 @@
 use egui::Checkbox;
 use egui_backend::sdl2::video::GLProfile;
 use egui_backend::{egui, gl, sdl2};
+use egui_backend::egui::FullOutput;
 use egui_backend::{sdl2::event::Event, DpiScaling, ShaderVersion};
 use std::time::Instant;
 // Alias the backend to something less mouthful
@@ -40,7 +41,7 @@ fn main() {
     // let shader_ver = ShaderVersion::Adaptive;
     let (mut painter, mut egui_state) =
         egui_backend::with_sdl2(&window, shader_ver, DpiScaling::Custom(2.0));
-    let mut egui_ctx = egui::CtxRef::default();
+    let egui_ctx = egui::Context::default();
     let mut event_pump = sdl_context.event_pump().unwrap();
 
     let mut test_str: String =
@@ -64,6 +65,12 @@ fn main() {
                 .gl_set_swap_interval(SwapInterval::Immediate)
                 .unwrap()
         }
+        
+        unsafe {
+            // Clear the screen to green
+            gl::ClearColor(0.3, 0.6, 0.3, 1.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+        }
 
         egui_state.input.time = Some(start_time.elapsed().as_secs_f64());
         egui_ctx.begin_frame(egui_state.input.take());
@@ -81,9 +88,15 @@ fn main() {
             }
         });
 
-        let (egui_output, paint_cmds) = egui_ctx.end_frame();
+        let FullOutput {
+            platform_output,
+            repaint_after,
+            textures_delta,
+            shapes,
+        } = egui_ctx.end_frame();
+
         // Process ouput
-        egui_state.process_output(&window, &egui_output);
+        egui_state.process_output(&window, &platform_output);
 
         // For default dpi scaling only, Update window when the size of resized window is very small (to avoid egui::CentralPanel distortions).
         // if egui_ctx.used_size() != painter.screen_rect.size() {
@@ -93,18 +106,11 @@ fn main() {
         //     window.set_size(w, h).unwrap();
         // }
 
-        let paint_jobs = egui_ctx.tessellate(paint_cmds);
+        let paint_jobs = egui_ctx.tessellate(shapes);
+        painter.paint_jobs(None, textures_delta, paint_jobs);
+        window.gl_swap_window();
 
-        // An example of how OpenGL can be used to draw custom stuff with egui
-        // overlaying it:
-        // First clear the background to something nice.
-        unsafe {
-            // Clear the screen to green
-            gl::ClearColor(0.3, 0.6, 0.3, 1.0);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-        }
-
-        if !egui_output.needs_repaint {
+        if repaint_after.is_zero() {
             if let Some(event) = event_pump.wait_event_timeout(5) {
                 match event {
                     Event::Quit { .. } => break 'running,
@@ -115,8 +121,6 @@ fn main() {
                 }
             }
         } else {
-            painter.paint_jobs(None, paint_jobs, &egui_ctx.font_image());
-            window.gl_swap_window();
             for event in event_pump.poll_iter() {
                 match event {
                     Event::Quit { .. } => break 'running,
