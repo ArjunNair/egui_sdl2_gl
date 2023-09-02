@@ -1,6 +1,7 @@
 use std::time::Instant;
+
 //Alias the backend to something less mouthful
-use egui_backend::egui::{vec2, Color32, Image};
+use egui_backend::egui::{vec2, Color32, FullOutput, Image};
 use egui_backend::sdl2::video::GLProfile;
 use egui_backend::{egui, gl, sdl2};
 use egui_backend::{sdl2::event::Event, DpiScaling, ShaderVersion};
@@ -54,7 +55,7 @@ fn main() {
     // Init egui stuff
     let (mut painter, mut egui_state) =
         egui_backend::with_sdl2(&window, ShaderVersion::Default, DpiScaling::Default);
-    let mut egui_ctx = egui::CtxRef::default();
+    let egui_ctx = egui::Context::default();
     let mut event_pump: sdl2::EventPump = sdl_context.event_pump().unwrap();
     let mut srgba: Vec<Color32> = Vec::new();
 
@@ -135,21 +136,26 @@ fn main() {
             }
         });
 
-        let (egui_output, paint_cmds) = egui_ctx.end_frame();
-        // Process ouput
-        egui_state.process_output(&window, &egui_output);
+        let FullOutput {
+            platform_output,
+            repaint_after,
+            textures_delta,
+            shapes,
+        } = egui_ctx.end_frame();
+        // Process output
+        egui_state.process_output(&window, &platform_output);
 
-        let paint_jobs = egui_ctx.tessellate(paint_cmds);
+        let paint_jobs = egui_ctx.tessellate(shapes);
 
         // Note: passing a bg_color to paint_jobs will clear any previously drawn stuff.
         // Use this only if egui is being used for all drawing and you aren't mixing your own Open GL
         // drawing calls with it.
         // Since we are custom drawing an OpenGL Triangle we don't need egui to clear the background.
-        painter.paint_jobs(None, paint_jobs, &egui_ctx.font_image());
+        painter.paint_jobs(None, textures_delta, paint_jobs);
 
         window.gl_swap_window();
 
-        if !egui_output.needs_repaint {
+        if !repaint_after.is_zero() {
             if let Some(event) = event_pump.wait_event_timeout(5) {
                 match event {
                     Event::Quit { .. } => break 'running,

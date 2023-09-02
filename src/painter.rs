@@ -1,26 +1,26 @@
 extern crate gl;
 extern crate sdl2;
 use crate::ShaderVersion;
+use ahash::AHashMap;
 use core::mem;
 use core::ptr;
 use core::str;
 use egui::{
-    epaint::{Color32, FontImage, Mesh},
-    vec2, ClippedMesh, Pos2, Rect,
+    epaint::{Color32, Mesh, Primitive},
+    vec2, ClippedPrimitive, Pos2, Rect,
 };
 use gl::types::{GLchar, GLenum, GLint, GLsizeiptr, GLsync, GLuint};
 use std::ffi::CString;
-use std::os::raw::c_void;
 
 #[derive(Default)]
-struct UserTexture {
+struct Texture {
     size: (usize, usize),
 
     /// Pending upload (will be emptied later).
     pixels: Vec<u8>,
 
     /// Lazily uploaded
-    texture: Option<GLuint>,
+    gl_id: Option<GLuint>,
 
     /// For user textures there is a choice between
     /// Linear (default) and Nearest.
@@ -226,11 +226,9 @@ pub struct Painter {
     pos_buffer: GLuint,
     tc_buffer: GLuint,
     color_buffer: GLuint,
-    egui_texture: GLuint,
     // Call fence for sdl vsync so the CPU won't heat up if there's no heavy activity.
     pub gl_sync_fence: GLsync,
-    egui_texture_version: Option<u64>,
-    user_textures: Vec<Option<UserTexture>>,
+    textures: AHashMap<egui::TextureId, Texture>,
     pub pixels_per_point: f32,
     pub canvas_size: (u32, u32),
     pub screen_rect: Rect,
@@ -307,10 +305,7 @@ pub fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
 impl Painter {
     pub fn new(window: &sdl2::video::Window, scale: f32, shader_ver: ShaderVersion) -> Painter {
         unsafe {
-            let mut egui_texture = 0;
             gl::load_with(|name| window.subsystem().gl_get_proc_address(name) as *const _);
-            gl::GenTextures(1, &mut egui_texture);
-            gl::BindTexture(gl::TEXTURE_2D, egui_texture);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
@@ -352,11 +347,9 @@ impl Painter {
                 pos_buffer,
                 tc_buffer,
                 color_buffer,
-                egui_texture,
                 gl_sync_fence: gl::FenceSync(gl::SYNC_GPU_COMMANDS_COMPLETE, 0),
                 pixels_per_point,
-                egui_texture_version: None,
-                user_textures: Default::default(),
+                textures: Default::default(),
                 canvas_size: (width, height),
                 screen_rect,
             }
@@ -386,14 +379,18 @@ impl Painter {
             pixels.push(srgba[3]);
         }
 
-        let id = egui::TextureId::User(self.user_textures.len() as u64);
-        self.user_textures.push(Some(UserTexture {
-            size,
-            pixels,
-            texture: None,
-            filtering,
-            dirty: true,
-        }));
+        let id = egui::TextureId::User(self.textures.len() as u64);
+        self.textures.insert(
+            id,
+            Texture {
+                size,
+                pixels,
+                gl_id: None,
+                filtering,
+                dirty: true,
+            },
+        );
+
         id
     }
 
@@ -404,210 +401,71 @@ impl Painter {
         rgba8_pixels: Vec<u8>,
         filtering: bool,
     ) -> egui::TextureId {
-        let id = egui::TextureId::User(self.user_textures.len() as u64);
-        self.user_textures.push(Some(UserTexture {
-            size,
-            pixels: rgba8_pixels,
-            texture: None,
-            filtering,
-            dirty: true,
-        }));
+        let id = egui::TextureId::User(self.textures.len() as u64);
+        self.textures.insert(
+            id,
+            Texture {
+                size,
+                pixels: rgba8_pixels,
+                gl_id: None,
+                filtering,
+                dirty: true,
+            },
+        );
+
         id
     }
 
-    /// fn free_user_texture() and fn free() implemented from epi both are basically the same.
-    pub fn free_user_texture(&mut self, id: egui::TextureId) {
-        if let egui::TextureId::User(id) = id {
-            let idx = id as usize;
-            if idx < self.user_textures.len() {
-                if let Some(UserTexture {
-                    texture: Some(texture),
-                    ..
-                }) = self.user_textures[idx].as_mut()
-                {
-                    unsafe { gl::DeleteTextures(1, texture) }
-                }
-                self.user_textures[idx] = None
-            }
+    /// fn free_texture() and fn free() implemented from epi both are basically the same.
+    pub fn free_texture(&mut self, id: egui::TextureId) {
+        if let Some(Texture {
+            gl_id: Some(texture_id),
+            ..
+        }) = self.textures.get(&id)
+        {
+            unsafe { gl::DeleteTextures(1, texture_id) }
+            self.textures.remove(&id);
         }
     }
 
-    fn upload_egui_texture(&mut self, texture: &FontImage) {
-        if self.egui_texture_version == Some(texture.version) {
-            return; // No change
-        }
+    pub fn update_user_texture_data(&mut self, id: egui::TextureId, _pixels: &[Color32]) {
+        if let Some(Texture { pixels, dirty, .. }) = self.textures.get_mut(&id) {
+            *pixels = Vec::with_capacity(pixels.len() * 4);
 
-        let mut pixels: Vec<u8> = Vec::with_capacity(texture.pixels.len() * 4);
-        for &alpha in &texture.pixels {
-            let srgba = Color32::from_white_alpha(alpha);
-            pixels.push(srgba[0]);
-            pixels.push(srgba[1]);
-            pixels.push(srgba[2]);
-            pixels.push(srgba[3]);
-        }
-
-        unsafe {
-            gl::BindTexture(gl::TEXTURE_2D, self.egui_texture);
-
-            let level = 0;
-            let internal_format = gl::RGBA;
-            let border = 0;
-            let src_format = gl::RGBA;
-            let src_type = gl::UNSIGNED_BYTE;
-            gl::TexImage2D(
-                gl::TEXTURE_2D,
-                level,
-                internal_format as i32,
-                texture.width as i32,
-                texture.height as i32,
-                border,
-                src_format,
-                src_type,
-                pixels.as_ptr() as *const c_void,
-            );
-
-            self.egui_texture_version = Some(texture.version);
-        }
-    }
-
-    fn upload_user_textures(&mut self) {
-        unsafe {
-            for user_texture in self.user_textures.iter_mut().flatten() {
-                if !user_texture.dirty {
-                    continue;
-                }
-
-                let pixels = std::mem::take(&mut user_texture.pixels);
-
-                if user_texture.texture.is_none() {
-                    let mut gl_texture = 0;
-                    gl::GenTextures(1, &mut gl_texture);
-                    gl::BindTexture(gl::TEXTURE_2D, gl_texture);
-                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
-                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
-
-                    if user_texture.filtering {
-                        gl::TexParameteri(
-                            gl::TEXTURE_2D,
-                            gl::TEXTURE_MIN_FILTER,
-                            gl::LINEAR as i32,
-                        );
-                        gl::TexParameteri(
-                            gl::TEXTURE_2D,
-                            gl::TEXTURE_MAG_FILTER,
-                            gl::LINEAR as i32,
-                        );
-                    } else {
-                        gl::TexParameteri(
-                            gl::TEXTURE_2D,
-                            gl::TEXTURE_MIN_FILTER,
-                            gl::NEAREST as i32,
-                        );
-                        gl::TexParameteri(
-                            gl::TEXTURE_2D,
-                            gl::TEXTURE_MAG_FILTER,
-                            gl::NEAREST as i32,
-                        );
-                    }
-                    user_texture.texture = Some(gl_texture);
-                } else {
-                    gl::BindTexture(gl::TEXTURE_2D, user_texture.texture.unwrap());
-                }
-
-                let level = 0;
-                let internal_format = gl::RGBA;
-                let border = 0;
-                let src_format = gl::RGBA;
-                let src_type = gl::UNSIGNED_BYTE;
-
-                gl::TexImage2D(
-                    gl::TEXTURE_2D,
-                    level,
-                    internal_format as i32,
-                    user_texture.size.0 as i32,
-                    user_texture.size.1 as i32,
-                    border,
-                    src_format,
-                    src_type,
-                    pixels.as_ptr() as *const c_void,
-                );
-
-                user_texture.dirty = false;
+            for p in _pixels {
+                pixels.push(p[0]);
+                pixels.push(p[1]);
+                pixels.push(p[2]);
+                pixels.push(p[3]);
             }
-        }
-    }
 
-    fn get_texture(&self, texture_id: egui::TextureId) -> Option<GLuint> {
-        match texture_id {
-            egui::TextureId::Egui => Some(self.egui_texture),
-            egui::TextureId::User(id) => {
-                let id = id as usize;
-                if id < self.user_textures.len() {
-                    if let Some(user_texture) = &self.user_textures[id] {
-                        return user_texture.texture;
-                    }
-                }
-                None
-            }
-        }
-    }
-
-    pub fn update_user_texture_data(&mut self, texture_id: egui::TextureId, _pixels: &[Color32]) {
-        match texture_id {
-            egui::TextureId::Egui => {}
-            egui::TextureId::User(id) => {
-                let id = id as usize;
-                assert!(id < self.user_textures.len());
-                if let Some(UserTexture { pixels, dirty, .. }) = &mut self.user_textures[id] {
-                    {
-                        *pixels = Vec::with_capacity(pixels.len() * 4);
-                    }
-
-                    for p in _pixels {
-                        pixels.push(p[0]);
-                        pixels.push(p[1]);
-                        pixels.push(p[2]);
-                        pixels.push(p[3]);
-                    }
-
-                    *dirty = true;
-                }
-            }
+            *dirty = true;
         }
     }
 
     /// Updates texture rgba8 data
-    pub fn update_user_texture_rgba8_data(
-        &mut self,
-        texture_id: egui::TextureId,
-        rgba8_pixels: Vec<u8>,
-    ) {
-        match texture_id {
-            egui::TextureId::Egui => {}
-            egui::TextureId::User(id) => {
-                let id = id as usize;
-                if id < self.user_textures.len() {
-                    if let Some(user_textures) = self.user_textures[id].as_mut() {
-                        user_textures.pixels = rgba8_pixels;
-                        user_textures.dirty = true
-                    }
-                }
-            }
-        }
+    pub fn update_user_texture_rgba8_data(&mut self, id: egui::TextureId, rgba8_pixels: Vec<u8>) {
+        if let Some(Texture { pixels, dirty, .. }) = self.textures.get_mut(&id) {
+            *pixels = rgba8_pixels;
+            *dirty = true
+        };
     }
 
     pub fn paint_jobs(
         &mut self,
         bg_color: Option<Color32>,
-        meshes: Vec<ClippedMesh>,
-        egui_texture: &FontImage,
+        textures_delta: egui::TexturesDelta,
+        primitives: Vec<ClippedPrimitive>,
     ) {
         unsafe {
             gl::PixelStorei(gl::UNPACK_ROW_LENGTH, 0);
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 4);
         }
 
-        self.upload_egui_texture(egui_texture);
+        for (texture_id, delta) in textures_delta.set {
+            self.upload_egui_texture(texture_id, &delta);
+        }
+
         self.upload_user_textures();
 
         let (canvas_width, canvas_height) = self.canvas_size;
@@ -636,47 +494,179 @@ impl Painter {
             let u_screen_size = CString::new("u_screen_size").unwrap();
             let u_screen_size_ptr = u_screen_size.as_ptr();
             let u_screen_size_loc = gl::GetUniformLocation(self.program, u_screen_size_ptr);
+
             let (x, y) = (self.screen_rect.width(), self.screen_rect.height());
             gl::Uniform2f(u_screen_size_loc, x, y);
+
             let u_sampler = CString::new("u_sampler").unwrap();
             let u_sampler_ptr = u_sampler.as_ptr();
             let u_sampler_loc = gl::GetUniformLocation(self.program, u_sampler_ptr);
             gl::Uniform1i(u_sampler_loc, 0);
             gl::Viewport(0, 0, canvas_width as i32, canvas_height as i32);
+
             let screen_x = canvas_width as f32;
             let screen_y = canvas_height as f32;
 
-            for ClippedMesh(clip_rect, mesh) in meshes {
-                if let Some(texture_id) = self.get_texture(mesh.texture_id) {
-                    gl::BindTexture(gl::TEXTURE_2D, texture_id);
-                    let clip_min_x = pixels_per_point * clip_rect.min.x;
-                    let clip_min_y = pixels_per_point * clip_rect.min.y;
-                    let clip_max_x = pixels_per_point * clip_rect.max.x;
-                    let clip_max_y = pixels_per_point * clip_rect.max.y;
-                    let clip_min_x = clip_min_x.clamp(0.0, x);
-                    let clip_min_y = clip_min_y.clamp(0.0, y);
-                    let clip_max_x = clip_max_x.clamp(clip_min_x, screen_x);
-                    let clip_max_y = clip_max_y.clamp(clip_min_y, screen_y);
-                    let clip_min_x = clip_min_x.round() as i32;
-                    let clip_min_y = clip_min_y.round() as i32;
-                    let clip_max_x = clip_max_x.round() as i32;
-                    let clip_max_y = clip_max_y.round() as i32;
+            for ClippedPrimitive {
+                clip_rect,
+                primitive,
+            } in primitives
+            {
+                match primitive {
+                    Primitive::Mesh(mesh) => {
+                        if let Some(Texture { gl_id, .. }) = self.textures.get(&mesh.texture_id) {
+                            if let Some(texture_gl_id) = gl_id {
+                                gl::BindTexture(gl::TEXTURE_2D, *texture_gl_id);
 
-                    //scissor Y coordinate is from the bottom
-                    gl::Scissor(
-                        clip_min_x,
-                        canvas_height as i32 - clip_max_y,
-                        clip_max_x - clip_min_x,
-                        clip_max_y - clip_min_y,
-                    );
+                                let clip_min_x = pixels_per_point * clip_rect.min.x;
+                                let clip_min_y = pixels_per_point * clip_rect.min.y;
+                                let clip_max_x = pixels_per_point * clip_rect.max.x;
+                                let clip_max_y = pixels_per_point * clip_rect.max.y;
+                                let clip_min_x = clip_min_x.clamp(0.0, x);
+                                let clip_min_y = clip_min_y.clamp(0.0, y);
+                                let clip_max_x = clip_max_x.clamp(clip_min_x, screen_x);
+                                let clip_max_y = clip_max_y.clamp(clip_min_y, screen_y);
+                                let clip_min_x = clip_min_x.round() as i32;
+                                let clip_min_y = clip_min_y.round() as i32;
+                                let clip_max_x = clip_max_x.round() as i32;
+                                let clip_max_y = clip_max_y.round() as i32;
 
-                    self.paint_mesh(&mesh);
+                                //scissor Y coordinate is from the bottom
+                                gl::Scissor(
+                                    clip_min_x,
+                                    canvas_height as i32 - clip_max_y,
+                                    clip_max_x - clip_min_x,
+                                    clip_max_y - clip_min_y,
+                                );
+
+                                self.paint_mesh(&mesh);
+                            }
+                        }
+                    }
+                    Primitive::Callback(_) => panic!("custom rendering not yet supported"),
                 }
             }
 
             gl::Disable(gl::SCISSOR_TEST);
             gl::Disable(gl::FRAMEBUFFER_SRGB);
             gl::Disable(gl::BLEND);
+        }
+
+        for texture_id in textures_delta.free {
+            self.free_texture(texture_id);
+        }
+    }
+
+    pub fn cleanup(&self) {
+        unsafe {
+            gl::DeleteSync(self.gl_sync_fence);
+            for (_, texture) in self.textures.iter() {
+                if let Some(texture_gl_id) = texture.gl_id {
+                    gl::DeleteTextures(1, &texture_gl_id);
+                }
+            }
+
+            gl::DeleteProgram(self.program);
+            gl::DeleteBuffers(1, &self.pos_buffer);
+            gl::DeleteBuffers(1, &self.tc_buffer);
+            gl::DeleteBuffers(1, &self.color_buffer);
+            gl::DeleteBuffers(1, &self.index_buffer);
+            gl::DeleteVertexArrays(1, &self.vertex_array);
+        }
+    }
+
+    fn upload_egui_texture(&mut self, id: egui::TextureId, delta: &egui::epaint::ImageDelta) {
+        // Modelled after egui_glium's set_texture().
+        // From: https://github.com/emilk/egui/blob/
+        //               34e6e12f002e7b477a8e8af6032097b00b96deea/crates/egui_glium/src/painter.rs
+        let pixels: Vec<u8> = match &delta.image {
+            egui::ImageData::Color(image) => {
+                assert_eq!(
+                    image.width() * image.height(),
+                    image.pixels.len(),
+                    "Mismatch between texture size and texel count"
+                );
+
+                image
+                    .pixels
+                    .iter()
+                    .map(|colour| colour.to_array())
+                    .flatten()
+                    .collect()
+            }
+            egui::ImageData::Font(image) => image
+                .srgba_pixels(None)
+                .map(|colour| colour.to_array())
+                .flatten()
+                .collect(),
+        };
+        let texture_width = delta.image.width();
+        let texture_height = delta.image.height();
+
+        if let Some(patch_pos) = delta.pos {
+            if let Some(texture) = self.textures.get_mut(&id) {
+                let patch_x = patch_pos[0];
+                let patch_y = patch_pos[1];
+                let patch_width = texture_width;
+                let patch_height = texture_height;
+                if texture.gl_id.is_some() {
+                    unsafe {
+                        let mipmap_level = 0;
+                        let internal_format = gl::RGBA;
+                        let texture_type = gl::UNSIGNED_BYTE;
+
+                        gl::TexSubImage2D(
+                            texture.gl_id.unwrap(),
+                            mipmap_level,
+                            patch_x as i32,
+                            patch_y as i32,
+                            patch_width as i32,
+                            patch_height as i32,
+                            internal_format,
+                            texture_type,
+                            pixels.as_ptr() as *const gl::types::GLvoid,
+                        );
+                    }
+                }
+            }
+        } else {
+            let texture_filtering: bool = true;
+            let mut texture_gl_id = Option::None;
+            Self::generate_gl_texture2d(
+                &mut texture_gl_id,
+                &pixels,
+                texture_width as i32,
+                texture_height as i32,
+                texture_filtering,
+            );
+
+            self.textures.insert(
+                id,
+                Texture {
+                    size: (texture_width, texture_height),
+                    pixels: pixels,
+                    gl_id: texture_gl_id,
+                    filtering: true,
+                    dirty: false,
+                },
+            );
+        }
+    }
+
+    fn upload_user_textures(&mut self) {
+        for (_, texture) in self.textures.iter_mut() {
+            if !texture.dirty {
+                continue;
+            }
+
+            let width = texture.size.0 as i32;
+            let height = texture.size.1 as i32;
+            let filtering = texture.filtering;
+            let mut gl_id = texture.gl_id;
+            Self::generate_gl_texture2d(&mut gl_id, &texture.pixels, width, height, filtering);
+
+            texture.gl_id = gl_id;
+            texture.dirty = false;
         }
     }
 
@@ -806,22 +796,51 @@ impl Painter {
         }
     }
 
-    pub fn cleanup(&self) {
+    fn generate_gl_texture2d(
+        gl_id: &mut Option<GLuint>,
+        pixels: &Vec<u8>,
+        width: i32,
+        height: i32,
+        filtering: bool,
+    ) {
         unsafe {
-            gl::DeleteSync(self.gl_sync_fence);
-            for user in self.user_textures.iter().flatten() {
-                if user.texture.is_some() {
-                    gl::DeleteTextures(1, &user.texture.unwrap());
+            if gl_id.is_none() {
+                let mut texture_id = 0;
+                gl::GenTextures(1, &mut texture_id);
+                gl::BindTexture(gl::TEXTURE_2D, texture_id);
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
+
+                if filtering {
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+                } else {
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
                 }
+
+                *gl_id = Some(texture_id);
+            } else {
+                gl::BindTexture(gl::TEXTURE_2D, gl_id.unwrap());
             }
 
-            gl::DeleteProgram(self.program);
-            gl::DeleteBuffers(1, &self.pos_buffer);
-            gl::DeleteBuffers(1, &self.tc_buffer);
-            gl::DeleteBuffers(1, &self.color_buffer);
-            gl::DeleteBuffers(1, &self.index_buffer);
-            gl::DeleteTextures(1, &self.egui_texture);
-            gl::DeleteVertexArrays(1, &self.vertex_array);
+            let mipmap_level = 0;
+            let internal_format = gl::RGBA;
+            let border = 0;
+            let src_format = gl::RGBA;
+            let src_type = gl::UNSIGNED_BYTE;
+
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                mipmap_level,
+                internal_format as i32,
+                width,
+                height,
+                border,
+                src_format,
+                src_type,
+                pixels.as_ptr() as *const gl::types::GLvoid,
+            );
         }
     }
 }

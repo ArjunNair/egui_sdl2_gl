@@ -11,15 +11,15 @@ repository = "https://github.com/ArjunNair/egui_sdl2_gl"
 categories = ["gui", "graphics"]
 keywords = ["sdl2", "opengl", "egui", "gui", "gamedev"]
 include = ["**/*.rs", "Cargo.toml"]
-# build = "build.rs"
 
 [dependencies]
-gl = "0.14"
-egui = "0.16"
-sdl2 = "0.35"
+ahash = "~0.8"
+gl = "~0.14"
+egui = "~0.22"
+sdl2 = { version = "~0.35", features = ["bundled"] }
 
 [dependencies.epi]
-version = "0.16"
+version = "0.17"
 optional = true
 
 [features]
@@ -38,4 +38,4 @@ sdl2_static-link = ["sdl2/static-link"]
 use_epi = ["epi"]
 
 [dev-dependencies]
-egui_demo_lib = "0.16"
+egui_demo_lib = "0.22.0"
