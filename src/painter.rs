@@ -590,14 +590,12 @@ impl Painter {
                 image
                     .pixels
                     .iter()
-                    .map(|colour| colour.to_array())
-                    .flatten()
+                    .flat_map(|colour| colour.to_array())
                     .collect()
             }
             egui::ImageData::Font(image) => image
                 .srgba_pixels(None)
-                .map(|colour| colour.to_array())
-                .flatten()
+                .flat_map(|colour| colour.to_array())
                 .collect(),
         };
         let texture_width = delta.image.width();
@@ -644,7 +642,7 @@ impl Painter {
                 id,
                 Texture {
                     size: (texture_width, texture_height),
-                    pixels: pixels,
+                    pixels,
                     gl_id: texture_gl_id,
                     filtering: true,
                     dirty: false,
