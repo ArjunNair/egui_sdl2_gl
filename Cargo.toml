@@ -16,13 +16,15 @@ include = ["**/*.rs", "Cargo.toml"]
 ahash = "~0.8"
 gl = "~0.14"
 egui = "~0.22"
-sdl2 = { version = "~0.35", features = ["bundled"] }
+sdl2 = { version = "~0.35" }
 
 [dependencies.epi]
 version = "0.17"
 optional = true
 
 [features]
+default-features = ["sdl2_bundled"]
+
 sdl2_unsafe_textures = ["sdl2/unsafe_textures"]
 sdl2_gfx = ["sdl2/gfx"]
 sdl2_mixer = ["sdl2/mixer"]
