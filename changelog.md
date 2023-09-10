@@ -2,6 +2,13 @@
 
 NOTE: The major version number of this library matches that of the egui major version that this library currently supports. The minor version number may be different though. 
 
+# v0.22.1
+* Moved SDL 2 "bundled" feature to default-features to prevent compile issues on
+  Mac. Thanks [aspect](https://github.com/aspect)
+  
+# v0.22.0
+* Updated to egui v0.22.0. Thanks [Sean Ballais](https://github.com/seanballais)
+  
 # v0.16.0
 * Updated to egui v0.16. Thanks [FireFlightBoy](https://github.com/FirelightFlagboy)
 
