@@ -1,7 +1,7 @@
 use egui::Checkbox;
+use egui_backend::egui::FullOutput;
 use egui_backend::sdl2::video::GLProfile;
 use egui_backend::{egui, gl, sdl2};
-use egui_backend::egui::FullOutput;
 use egui_backend::{sdl2::event::Event, DpiScaling, ShaderVersion};
 use std::time::Instant;
 // Alias the backend to something less mouthful
@@ -40,7 +40,7 @@ fn main() {
     // On linux use GLES SL 100+, like so:
     // let shader_ver = ShaderVersion::Adaptive;
     let (mut painter, mut egui_state) =
-        egui_backend::with_sdl2(&window, shader_ver, DpiScaling::Custom(2.0));
+        egui_backend::with_sdl2(&window, shader_ver, DpiScaling::Default);
     let egui_ctx = egui::Context::default();
     let mut event_pump = sdl_context.event_pump().unwrap();
 
@@ -65,7 +65,7 @@ fn main() {
                 .gl_set_swap_interval(SwapInterval::Immediate)
                 .unwrap()
         }
-        
+
         unsafe {
             // Clear the screen to green
             gl::ClearColor(0.3, 0.6, 0.3, 1.0);

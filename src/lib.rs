@@ -88,14 +88,21 @@ pub fn with_sdl2(
     shader_ver: ShaderVersion,
     scale: DpiScaling,
 ) -> (Painter, EguiStateHandler) {
-    let display_dpi = window
-        .subsystem()
-        .display_dpi(0)
-        .unwrap_or((96.0, 96.0, 96.0));
+    let standard_dpi = 96.0;
+    let display_dpi =
+        window
+            .subsystem()
+            .display_dpi(0)
+            .unwrap_or((standard_dpi, standard_dpi, standard_dpi));
+    let dpi_scale = standard_dpi / display_dpi.0;
+    let normalized_scale = 1.0 / dpi_scale;
+    let default_scale = dpi_scale * normalized_scale;
+    println!("Display DPI detected: {:?}", display_dpi);
     let scale = match scale {
-        DpiScaling::Default => 96.0 / display_dpi.0,
-        DpiScaling::Custom(custom) => (96.0 / display_dpi.0) * custom,
+        DpiScaling::Default => default_scale,
+        DpiScaling::Custom(custom) => default_scale * custom,
     };
+    println!("Scaling display to {}", scale);
     let painter = painter::Painter::new(window, scale, shader_ver);
     EguiStateHandler::new(painter)
 }

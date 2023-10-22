@@ -56,7 +56,7 @@ fn main() {
 
     // Init egui stuff
     let (mut painter, mut egui_state) =
-        egui_backend::with_sdl2(&window, ShaderVersion::Default, DpiScaling::Custom(1.25));
+        egui_backend::with_sdl2(&window, ShaderVersion::Default, DpiScaling::Default);
     let mut demo_windows = egui_demo_lib::DemoWindows::default();
     let egui_ctx = egui::Context::default();
     let mut event_pump = sdl_context.event_pump().unwrap();
@@ -81,7 +81,7 @@ fn main() {
         });
 
         demo_windows.ui(&egui_ctx);
-        
+
         let FullOutput {
             platform_output,
             repaint_after,

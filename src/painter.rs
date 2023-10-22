@@ -514,8 +514,9 @@ impl Painter {
             {
                 match primitive {
                     Primitive::Mesh(mesh) => {
-                        if let Some(Texture { gl_id, .. }) = self.textures.get(&mesh.texture_id) {
-                            if let Some(texture_gl_id) = gl_id {
+                        if let Some(Texture {gl_id: Some(texture_gl_id),  .. }) = self.textures.get(&mesh.texture_id) {
+                            //if let Some(texture_gl_id) = gl_id 
+                            {
                                 gl::BindTexture(gl::TEXTURE_2D, *texture_gl_id);
 
                                 let clip_min_x = pixels_per_point * clip_rect.min.x;
