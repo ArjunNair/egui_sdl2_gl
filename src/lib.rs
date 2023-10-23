@@ -97,12 +97,12 @@ pub fn with_sdl2(
     let dpi_scale = standard_dpi / display_dpi.0;
     let normalized_scale = 1.0 / dpi_scale;
     let default_scale = dpi_scale * normalized_scale;
-    println!("Display DPI detected: {:?}", display_dpi);
+    //println!("Display DPI detected: {:?}", display_dpi);
     let scale = match scale {
         DpiScaling::Default => default_scale,
         DpiScaling::Custom(custom) => default_scale * custom,
     };
-    println!("Scaling display to {}", scale);
+    //println!("Scaling display to {}", scale);
     let painter = painter::Painter::new(window, scale, shader_ver);
     EguiStateHandler::new(painter)
 }
