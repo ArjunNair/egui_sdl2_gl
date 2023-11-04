@@ -1,6 +1,7 @@
 use std::time::Instant;
 
 //Alias the backend to something less mouthful
+use egui::load::SizedTexture;
 use egui_backend::egui::{vec2, Color32, FullOutput, Image};
 use egui_backend::sdl2::video::GLProfile;
 use egui_backend::{egui, gl, sdl2};
@@ -123,7 +124,7 @@ fn main() {
         egui::Window::new("Egui with SDL2 and GL").show(&egui_ctx, |ui| {
             // Image just needs a texture id reference, so we just pass it the texture id that was returned to us
             // when we previously initialized the texture.
-            ui.add(Image::new(chip8_tex_id, vec2(PIC_WIDTH as f32, PIC_HEIGHT as f32)));
+            ui.add(Image::new(SizedTexture::new(chip8_tex_id, vec2(PIC_WIDTH as f32, PIC_HEIGHT as f32))));
             ui.separator();
             ui.label("A simple sine wave plotted onto a GL texture then blitted to an egui managed Image.");
             ui.label(" ");

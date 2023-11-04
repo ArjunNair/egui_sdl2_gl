@@ -2,6 +2,12 @@
 
 NOTE: The major version number of this library matches that of the egui major version that this library currently supports. The minor version number may be different though. 
 
+# v0.23.0
+* Updated to egui v0.23.0
+* Fixed mix example throwing error due to Image api changes
+* Fix for SDL2 not returning DPI correctly on VMs. Thanks [CarlosEduardoL](https://github.com/CarlosEduardoL)
+* Better DPI default scaling that works on both Windows and Mac. Haven't been able to check on Linux, so if it's broken please let me know!
+
 # v0.22.1
 * Moved SDL 2 "bundled" feature to default-features to prevent compile issues on
   Mac. Thanks [aspect](https://github.com/aspect)
@@ -14,10 +20,10 @@ NOTE: The major version number of this library matches that of the egui major ve
 
 # v0.15.0
 * Updated to egui v0.15.0
-* Fix correct window not being checked for other events. See [isse] (https://github.com/ArjunNair/egui_sdl2_gl/issues/11). Thanks [Yamakaky](https://github.com/Yamakaky)
+* Fix correct window not being checked for other events. See [issue](https://github.com/ArjunNair/egui_sdl2_gl/issues/11). Thanks [Yamakaky](https://github.com/Yamakaky)
 * Added CI checks for clippy, rustfmt, etc. Thanks [Guillaume Gomez](https://github.com/GuillaumeGomez/)
 * Re-export painter as pub. Thanks [d10sfan](https://github.com/d10sfan)
-* Fix when keycode is None in keyboard event handling. Thanks [d10sfan] (https://github.com/d10sfan)
+* Fix when keycode is None in keyboard event handling. Thanks [d10sfan](https://github.com/d10sfan)
 * Accepted some clippy suggestions for simpler/better code. A couple of others I didn't understand. Suggestions welcome! :)
 
 # v0.14.1
