@@ -49,10 +49,12 @@ fn main() {
     debug_assert_eq!(gl_attr.context_version(), (3, 2));
 
     // Enable vsync
-    window
-        .subsystem()
-        .gl_set_swap_interval(SwapInterval::VSync)
-        .unwrap();
+    if let Err(error) = window.subsystem().gl_set_swap_interval(SwapInterval::VSync) {
+        println!(
+            "Failed to gl_set_swap_interval(SwapInterval::VSync): {}",
+            error
+        );
+    };
 
     // Init egui stuff
     let (mut painter, mut egui_state) =

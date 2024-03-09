@@ -51,21 +51,28 @@ fn main() {
     let mut quit = false;
     let mut slider = 0.0;
 
+    if enable_vsync {
+        if let Err(error) = window.subsystem().gl_set_swap_interval(SwapInterval::VSync) {
+            println!(
+                "Failed to gl_set_swap_interval(SwapInterval::VSync): {}",
+                error
+            );
+        }
+    } else {
+        if let Err(error) = window
+            .subsystem()
+            .gl_set_swap_interval(SwapInterval::Immediate)
+        {
+            println!(
+                "Failed to gl_set_swap_interval(SwapInterval::Immediate): {}",
+                error
+            );
+        }
+    }
+
     let start_time = Instant::now();
 
     'running: loop {
-        if enable_vsync {
-            window
-                .subsystem()
-                .gl_set_swap_interval(SwapInterval::VSync)
-                .unwrap()
-        } else {
-            window
-                .subsystem()
-                .gl_set_swap_interval(SwapInterval::Immediate)
-                .unwrap()
-        }
-
         unsafe {
             // Clear the screen to green
             gl::ClearColor(0.3, 0.6, 0.3, 1.0);
