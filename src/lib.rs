@@ -107,15 +107,20 @@ pub fn with_sdl2(
 
 impl EguiStateHandler {
     pub fn new(painter: Painter) -> (Painter, EguiStateHandler) {
+        let mut input = egui::RawInput {
+            screen_rect: Some(painter.screen_rect),
+            ..Default::default()
+        };
+        input
+            .viewports
+            .entry(ViewportId::ROOT)
+            .or_default()
+            .native_pixels_per_point = Some(painter.pixels_per_point);
         let native_pixels_per_point = painter.pixels_per_point;
         let _self = EguiStateHandler {
             fused_cursor: FusedCursor::default(),
             pointer_pos: Pos2::new(0f32, 0f32),
-            input: egui::RawInput {
-                screen_rect: Some(painter.screen_rect),
-                pixels_per_point: Some(native_pixels_per_point),
-                ..Default::default()
-            },
+            input,
             modifiers: Modifiers::default(),
             native_pixels_per_point,
         };
@@ -251,6 +256,8 @@ pub fn input_to_egui(
                 pressed: false,
                 repeat,
                 modifiers: state.modifiers,
+                // TODO: implement support for physical_key
+                physical_key: None,
             });
         }
 
@@ -288,6 +295,8 @@ pub fn input_to_egui(
                 pressed: true,
                 repeat,
                 modifiers: state.modifiers,
+                // TODO: implement support for physical_key
+                physical_key: None,
             });
 
             if state.modifiers.command && key == Key::C {
