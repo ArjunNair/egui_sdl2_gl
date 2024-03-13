@@ -10,6 +10,7 @@ use egui::{
     vec2, ClippedPrimitive, Pos2, Rect,
 };
 use gl::types::{GLchar, GLenum, GLint, GLsizeiptr, GLsync, GLuint};
+use std::convert::TryInto;
 use std::ffi::CString;
 
 const DEFAULT_VERT_SRC: &str = include_str!("shader/default.vert");
@@ -41,9 +42,7 @@ pub struct Painter {
     vertex_array: GLuint,
     program: GLuint,
     index_buffer: GLuint,
-    pos_buffer: GLuint,
-    tc_buffer: GLuint,
-    color_buffer: GLuint,
+    vertex_buffer: GLuint,
     // Call fence for sdl vsync so the CPU won't heat up if there's no heavy activity.
     pub gl_sync_fence: GLsync,
     textures: AHashMap<egui::TextureId, Texture>,
@@ -140,15 +139,14 @@ impl Painter {
             let program = link_program(vert_shader, frag_shader);
             let mut vertex_array = 0;
             let mut index_buffer = 0;
-            let mut pos_buffer = 0;
-            let mut tc_buffer = 0;
-            let mut color_buffer = 0;
+            let mut vertex_buffer = 0;
             gl::GenVertexArrays(1, &mut vertex_array);
             gl::BindVertexArray(vertex_array);
+            assert!(vertex_array > 0);
             gl::GenBuffers(1, &mut index_buffer);
-            gl::GenBuffers(1, &mut pos_buffer);
-            gl::GenBuffers(1, &mut tc_buffer);
-            gl::GenBuffers(1, &mut color_buffer);
+            assert!(index_buffer > 0);
+            gl::GenBuffers(1, &mut vertex_buffer);
+            assert!(vert_shader > 0);
 
             let (width, height) = window.size();
             let pixels_per_point = scale;
@@ -163,9 +161,7 @@ impl Painter {
                 vertex_array,
                 program,
                 index_buffer,
-                pos_buffer,
-                tc_buffer,
-                color_buffer,
+                vertex_buffer,
                 gl_sync_fence: gl::FenceSync(gl::SYNC_GPU_COMMANDS_COMPLETE, 0),
                 pixels_per_point,
                 textures: Default::default(),
@@ -390,9 +386,7 @@ impl Painter {
             }
 
             gl::DeleteProgram(self.program);
-            gl::DeleteBuffers(1, &self.pos_buffer);
-            gl::DeleteBuffers(1, &self.tc_buffer);
-            gl::DeleteBuffers(1, &self.color_buffer);
+            gl::DeleteBuffers(1, &self.vertex_buffer);
             gl::DeleteBuffers(1, &self.index_buffer);
             gl::DeleteVertexArrays(1, &self.vertex_array);
         }
@@ -494,10 +488,8 @@ impl Painter {
     fn paint_mesh(&self, mesh: &Mesh) {
         debug_assert!(mesh.is_valid());
         unsafe {
-            let indices: Vec<u16> = mesh.indices.iter().map(move |idx| *idx as u16).collect();
-            let indices_len = indices.len();
+            let indices = &mesh.indices;
             let vertices = &mesh.vertices;
-            let vertices_len = vertices.len();
 
             // --------------------------------------------------------------------
 
@@ -505,35 +497,21 @@ impl Painter {
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.index_buffer);
             gl::BufferData(
                 gl::ELEMENT_ARRAY_BUFFER,
-                (indices_len * mem::size_of::<u16>()) as GLsizeiptr,
-                //mem::transmute(&indices.as_ptr()),
+                (indices.len() * mem::size_of::<u32>()) as GLsizeiptr,
                 indices.as_ptr() as *const gl::types::GLvoid,
                 gl::STREAM_DRAW,
             );
 
             // --------------------------------------------------------------------
 
-            let mut positions: Vec<f32> = Vec::with_capacity(2 * vertices_len);
-            let mut tex_coords: Vec<f32> = Vec::with_capacity(2 * vertices_len);
-            {
-                for v in &mesh.vertices {
-                    positions.push(v.pos.x);
-                    positions.push(v.pos.y);
-                    tex_coords.push(v.uv.x);
-                    tex_coords.push(v.uv.y);
-                }
-            }
-
-            // --------------------------------------------------------------------
-
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.pos_buffer);
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.vertex_buffer);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (positions.len() * mem::size_of::<f32>()) as GLsizeiptr,
-                //mem::transmute(&positions.as_ptr()),
-                positions.as_ptr() as *const gl::types::GLvoid,
+                (vertices.len() * mem::size_of::<egui::epaint::Vertex>()) as GLsizeiptr,
+                vertices.as_ptr() as *const gl::types::GLvoid,
                 gl::STREAM_DRAW,
             );
+            let stride: i32 = mem::size_of::<egui::epaint::Vertex>().try_into().unwrap();
 
             let a_pos = CString::new("a_pos").unwrap();
             let a_pos_ptr = a_pos.as_ptr();
@@ -541,20 +519,15 @@ impl Painter {
             assert!(a_pos_loc >= 0);
             let a_pos_loc = a_pos_loc as u32;
 
-            let stride = 0;
-            gl::VertexAttribPointer(a_pos_loc, 2, gl::FLOAT, gl::FALSE, stride, ptr::null());
-            gl::EnableVertexAttribArray(a_pos_loc);
-
-            // --------------------------------------------------------------------
-
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.tc_buffer);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (tex_coords.len() * mem::size_of::<f32>()) as GLsizeiptr,
-                //mem::transmute(&tex_coords.as_ptr()),
-                tex_coords.as_ptr() as *const gl::types::GLvoid,
-                gl::STREAM_DRAW,
+            gl::VertexAttribPointer(
+                a_pos_loc,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                memoffset::offset_of!(egui::epaint::Vertex, pos) as *const _,
             );
+            gl::EnableVertexAttribArray(a_pos_loc);
 
             let a_tc = CString::new("a_tc").unwrap();
             let a_tc_ptr = a_tc.as_ptr();
@@ -562,30 +535,15 @@ impl Painter {
             assert!(a_tc_loc >= 0);
             let a_tc_loc = a_tc_loc as u32;
 
-            let stride = 0;
-            gl::VertexAttribPointer(a_tc_loc, 2, gl::FLOAT, gl::FALSE, stride, ptr::null());
-            gl::EnableVertexAttribArray(a_tc_loc);
-
-            // --------------------------------------------------------------------
-
-            let mut colors: Vec<u8> = Vec::with_capacity(4 * vertices_len);
-            {
-                for v in vertices {
-                    colors.push(v.color[0]);
-                    colors.push(v.color[1]);
-                    colors.push(v.color[2]);
-                    colors.push(v.color[3]);
-                }
-            }
-
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.color_buffer);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (colors.len() * mem::size_of::<u8>()) as GLsizeiptr,
-                //mem::transmute(&colors.as_ptr()),
-                colors.as_ptr() as *const gl::types::GLvoid,
-                gl::STREAM_DRAW,
+            gl::VertexAttribPointer(
+                a_tc_loc,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                memoffset::offset_of!(egui::epaint::Vertex, uv) as *const _,
             );
+            gl::EnableVertexAttribArray(a_tc_loc);
 
             let a_srgba = CString::new("a_srgba").unwrap();
             let a_srgba_ptr = a_srgba.as_ptr();
@@ -593,22 +551,22 @@ impl Painter {
             assert!(a_srgba_loc >= 0);
             let a_srgba_loc = a_srgba_loc as u32;
 
-            let stride = 0;
             gl::VertexAttribPointer(
                 a_srgba_loc,
                 4,
                 gl::UNSIGNED_BYTE,
                 gl::FALSE,
                 stride,
-                ptr::null(),
+                memoffset::offset_of!(egui::epaint::Vertex, color) as *const _,
             );
             gl::EnableVertexAttribArray(a_srgba_loc);
 
             // --------------------------------------------------------------------
+
             gl::DrawElements(
                 gl::TRIANGLES,
-                indices_len as i32,
-                gl::UNSIGNED_SHORT,
+                indices.len() as i32,
+                gl::UNSIGNED_INT,
                 ptr::null(),
             );
             gl::DisableVertexAttribArray(a_pos_loc);
