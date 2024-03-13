@@ -12,6 +12,11 @@ use egui::{
 use gl::types::{GLchar, GLenum, GLint, GLsizeiptr, GLsync, GLuint};
 use std::ffi::CString;
 
+const DEFAULT_VERT_SRC: &str = include_str!("shader/default.vert");
+const DEFAULT_FRAG_SRC: &str = include_str!("shader/default.frag");
+const ADAPTIVE_VERT_SRC: &str = include_str!("shader/adaptive.vert");
+const ADAPTIVE_FRAG_SRC: &str = include_str!("shader/adaptive.frag");
+
 #[derive(Default)]
 struct Texture {
     size: (usize, usize),
@@ -31,193 +36,6 @@ struct Texture {
     /// texture has been updated.
     dirty: bool,
 }
-
-const VS_SRC_150: &str = r#"
-    #version 150
-    uniform vec2 u_screen_size;
-    in vec2 a_pos;
-    in vec4 a_srgba; // 0-255 sRGB
-    in vec2 a_tc;
-    out vec4 v_rgba;
-    out vec2 v_tc;
-
-    // 0-1 linear  from  0-255 sRGB
-    vec3 linear_from_srgb(vec3 srgb) {
-        bvec3 cutoff = lessThan(srgb, vec3(10.31475));
-        vec3 lower = srgb / vec3(3294.6);
-        vec3 higher = pow((srgb + vec3(14.025)) / vec3(269.025), vec3(2.4));
-        return mix(higher, lower, cutoff);
-    }
-
-    vec4 linear_from_srgba(vec4 srgba) {
-        return vec4(linear_from_srgb(srgba.rgb), srgba.a / 255.0);
-    }
-
-    void main() {
-        gl_Position = vec4(
-            2.0 * a_pos.x / u_screen_size.x - 1.0,
-            1.0 - 2.0 * a_pos.y / u_screen_size.y,
-            0.0,
-            1.0);
-        v_rgba = linear_from_srgba(a_srgba);
-        v_tc = a_tc;
-    }
-"#;
-
-const FS_SRC_150: &str = r#"
-    #version 150
-    uniform sampler2D u_sampler;
-    in vec4 v_rgba;
-    in vec2 v_tc;
-    out vec4 f_color;
-
-    // 0-255 sRGB  from  0-1 linear
-    vec3 srgb_from_linear(vec3 rgb) {
-        bvec3 cutoff = lessThan(rgb, vec3(0.0031308));
-        vec3 lower = rgb * vec3(3294.6);
-        vec3 higher = vec3(269.025) * pow(rgb, vec3(1.0 / 2.4)) - vec3(14.025);
-        return mix(higher, lower, vec3(cutoff));
-    }
-
-    vec4 srgba_from_linear(vec4 rgba) {
-        return vec4(srgb_from_linear(rgba.rgb), 255.0 * rgba.a);
-    }
-
-    vec3 linear_from_srgb(vec3 srgb) {
-        bvec3 cutoff = lessThan(srgb, vec3(10.31475));
-        vec3 lower = srgb / vec3(3294.6);
-        vec3 higher = pow((srgb + vec3(14.025)) / vec3(269.025), vec3(2.4));
-        return mix(higher, lower, vec3(cutoff));
-    }
-
-    vec4 linear_from_srgba(vec4 srgba) {
-        return vec4(linear_from_srgb(srgba.rgb), srgba.a / 255.0);
-    }
-
-    void main() {
-        // Need to convert from SRGBA to linear.
-        vec4 texture_rgba = linear_from_srgba(texture(u_sampler, v_tc) * 255.0);
-        f_color = v_rgba * texture_rgba;
-    }
-"#;
-
-// VS_SRC and FS_SRC shaders taken from egui_glow crate.
-const VS_SRC: &str = r#"
-#if !defined(GL_ES) && __VERSION__ >= 140
-#define I in
-#define O out
-#define V(x) x
-#else
-#define I attribute
-#define O varying
-#define V(x) vec3(x)
-#endif
-
-#ifdef GL_ES
-precision mediump float;
-#endif
-uniform vec2 u_screen_size;
-I vec2 a_pos;
-I vec4 a_srgba; // 0-255 sRGB
-I vec2 a_tc;
-O vec4 v_rgba;
-O vec2 v_tc;
-
-// 0-1 linear  from  0-255 sRGB
-vec3 linear_from_srgb(vec3 srgb) {
-  bvec3 cutoff = lessThan(srgb, vec3(10.31475));
-  vec3 lower = srgb / vec3(3294.6);
-  vec3 higher = pow((srgb + vec3(14.025)) / vec3(269.025), vec3(2.4));
-  return mix(higher, lower, V(cutoff));
-}
-
-vec4 linear_from_srgba(vec4 srgba) {
-  return vec4(linear_from_srgb(srgba.rgb), srgba.a / 255.0);
-}
-
-void main() {
-  gl_Position = vec4(2.0 * a_pos.x / u_screen_size.x - 1.0, 1.0 - 2.0 * a_pos.y / u_screen_size.y, 0.0, 1.0);
-  // egui encodes vertex colors in gamma spaces, so we must decode the colors here:
-  v_rgba = linear_from_srgba(a_srgba);
-  v_tc = a_tc;
-}
-"#;
-
-const FS_SRC: &str = r#"
-#ifdef GL_ES
-precision mediump float;
-#endif
-
-uniform sampler2D u_sampler;
-#if defined(GL_ES) || __VERSION__ < 140
-varying vec4 v_rgba;
-varying vec2 v_tc;
-#else
-in vec4 v_rgba;
-in vec2 v_tc;
-out vec4 f_color;
-#endif
-
-#ifdef GL_ES
-// 0-255 sRGB  from  0-1 linear
-vec3 srgb_from_linear(vec3 rgb) {
-  bvec3 cutoff = lessThan(rgb, vec3(0.0031308));
-  vec3 lower = rgb * vec3(3294.6);
-  vec3 higher = vec3(269.025) * pow(rgb, vec3(1.0 / 2.4)) - vec3(14.025);
-  return mix(higher, lower, vec3(cutoff));
-}
-
-vec4 srgba_from_linear(vec4 rgba) {
-  return vec4(srgb_from_linear(rgba.rgb), 255.0 * rgba.a);
-}
-
-#if __VERSION__ < 300
-// 0-1 linear  from  0-255 sRGB
-vec3 linear_from_srgb(vec3 srgb) {
-  bvec3 cutoff = lessThan(srgb, vec3(10.31475));
-  vec3 lower = srgb / vec3(3294.6);
-  vec3 higher = pow((srgb + vec3(14.025)) / vec3(269.025), vec3(2.4));
-  return mix(higher, lower, vec3(cutoff));
-}
-
-vec4 linear_from_srgba(vec4 srgba) {
-  return vec4(linear_from_srgb(srgba.rgb), srgba.a / 255.0);
-}
-#endif
-#endif
-
-#ifdef GL_ES
-void main() {
-#if __VERSION__ < 300
-  // We must decode the colors, since WebGL doesn't come with sRGBA textures:
-  vec4 texture_rgba = linear_from_srgba(texture2D(u_sampler, v_tc) * 255.0);
-#else
-  // The texture is set up with `SRGB8_ALPHA8`, so no need to decode here!
-  vec4 texture_rgba = texture2D(u_sampler, v_tc);
-#endif
-
-  /// Multiply vertex color with texture color (in linear space).
-  gl_FragColor = v_rgba * texture_rgba;
-
-  // We must gamma-encode again since WebGL doesn't support linear blending in the framebuffer.
-  gl_FragColor = srgba_from_linear(v_rgba * texture_rgba) / 255.0;
-
-  // WebGL doesn't support linear blending in the framebuffer,
-  // so we apply this hack to at least get a bit closer to the desired blending:
-  gl_FragColor.a = pow(gl_FragColor.a, 1.6); // Empiric nonsense
-}
-#else
-void main() {
-  // The texture sampler is sRGB aware, and OpenGL already expects linear rgba output
-  // so no need for any sRGB conversions here:
-#if __VERSION__ < 140
-  gl_FragColor = v_rgba * texture2D(u_sampler, v_tc);
-#else
-  f_color = v_rgba * texture(u_sampler, v_tc);
-#endif
-}
-#endif
-"#;
 
 pub struct Painter {
     vertex_array: GLuint,
@@ -310,13 +128,14 @@ impl Painter {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-            let (vs_src, fs_src) = if let ShaderVersion::Default = shader_ver {
-                (VS_SRC_150, FS_SRC_150)
-            } else {
-                (VS_SRC, FS_SRC)
+            let (vs_src, fs_src) = match shader_ver {
+                ShaderVersion::Default => (DEFAULT_VERT_SRC, DEFAULT_FRAG_SRC),
+                ShaderVersion::Adaptive => (ADAPTIVE_VERT_SRC, ADAPTIVE_FRAG_SRC),
             };
-            let vert_shader = compile_shader(vs_src, gl::VERTEX_SHADER);
-            let frag_shader = compile_shader(fs_src, gl::FRAGMENT_SHADER);
+            let vs_src = CString::new(vs_src).unwrap().to_string_lossy().to_string();
+            let fs_src = CString::new(fs_src).unwrap().to_string_lossy().to_string();
+            let vert_shader = compile_shader(&vs_src, gl::VERTEX_SHADER);
+            let frag_shader = compile_shader(&fs_src, gl::FRAGMENT_SHADER);
 
             let program = link_program(vert_shader, frag_shader);
             let mut vertex_array = 0;
