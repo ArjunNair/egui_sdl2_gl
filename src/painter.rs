@@ -571,7 +571,7 @@ impl Painter {
 
     fn generate_gl_texture2d(
         gl_id: &mut Option<GLuint>,
-        pixels: &Vec<u8>,
+        pixels: &[u8],
         width: i32,
         height: i32,
         filtering: bool,

@@ -58,16 +58,14 @@ fn main() {
                 error
             );
         }
-    } else {
-        if let Err(error) = window
-            .subsystem()
-            .gl_set_swap_interval(SwapInterval::Immediate)
-        {
-            println!(
-                "Failed to gl_set_swap_interval(SwapInterval::Immediate): {}",
-                error
-            );
-        }
+    } else if let Err(error) = window
+        .subsystem()
+        .gl_set_swap_interval(SwapInterval::Immediate)
+    {
+        println!(
+            "Failed to gl_set_swap_interval(SwapInterval::Immediate): {}",
+            error
+        );
     }
 
     let start_time = Instant::now();
