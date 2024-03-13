@@ -23,7 +23,7 @@ version = "0.17"
 optional = true
 
 [features]
-default-features = ["sdl2_bundled"]
+default = ["sdl2_bundled"]
 
 sdl2_unsafe_textures = ["sdl2/unsafe_textures"]
 sdl2_gfx = ["sdl2/gfx"]
