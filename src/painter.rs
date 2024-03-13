@@ -51,6 +51,30 @@ pub struct Painter {
     pub screen_rect: Rect,
 }
 
+macro_rules! get_gl_error {
+    ($id:expr, $fnlen:ident, $fnlog:ident) => {{
+        let mut len = 0;
+        unsafe {
+            gl::$fnlen($id, gl::INFO_LOG_LENGTH, &mut len);
+            let mut buf = Vec::with_capacity(len as usize);
+            gl::$fnlog($id, len, ptr::null_mut(), buf.as_mut_ptr() as *mut GLchar);
+            buf.set_len(len.try_into().unwrap());
+            CString::from_vec_with_nul(buf)
+                .unwrap()
+                .to_string_lossy()
+                .to_string()
+        }
+    }};
+}
+
+fn get_shader_error(id: u32) -> String {
+    get_gl_error!(id, GetShaderiv, GetShaderInfoLog)
+}
+
+fn get_program_error(id: u32) -> String {
+    get_gl_error!(id, GetProgramiv, GetProgramInfoLog)
+}
+
 pub fn compile_shader(src: &str, ty: GLenum) -> GLuint {
     let shader;
     unsafe {
@@ -65,22 +89,7 @@ pub fn compile_shader(src: &str, ty: GLenum) -> GLuint {
 
         // Fail on error
         if status != (gl::TRUE as GLint) {
-            let mut len = 0;
-            gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut len);
-            let mut buf = Vec::with_capacity(len as usize);
-            // clippy not happy with this, broke the CI:
-            // error: calling `set_len()` immediately after reserving a buffer creates uninitialized values
-            // buf.set_len((len as usize) - 1); // subtract 1 to skip the trailing null character
-            gl::GetShaderInfoLog(
-                shader,
-                len,
-                ptr::null_mut(),
-                buf.as_mut_ptr() as *mut GLchar,
-            );
-            panic!(
-                "{}",
-                str::from_utf8(&buf).expect("ShaderInfoLog not valid utf8")
-            );
+            panic!("{}", get_shader_error(shader));
         }
     }
     shader
@@ -98,22 +107,7 @@ pub fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
 
         // Fail on error
         if status != (gl::TRUE as GLint) {
-            let mut len: GLint = 0;
-            gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut len);
-            let mut buf = Vec::with_capacity(len as usize);
-            // clippy not happy with this, broke the CI:
-            // error: calling `set_len()` immediately after reserving a buffer creates uninitialized values
-            // buf.set_len((len as usize) - 1); // subtract 1 to skip the trailing null character
-            gl::GetProgramInfoLog(
-                program,
-                len,
-                ptr::null_mut(),
-                buf.as_mut_ptr() as *mut GLchar,
-            );
-            panic!(
-                "{}",
-                str::from_utf8(&buf).expect("ProgramInfoLog not valid utf8")
-            );
+            panic!("{}", get_program_error(program));
         }
         program
     }
