@@ -15,3 +15,5 @@ Cargo.lock
 
 # Visual Studio files
 .vs/
+
+.DS_Store
