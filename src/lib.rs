@@ -102,11 +102,12 @@ pub fn with_sdl2(
         DpiScaling::Custom(custom) => default_scale * custom,
     };
     let painter = painter::Painter::new(window, scale, shader_ver);
-    EguiStateHandler::new(painter)
+    let state_handler = EguiStateHandler::new(&painter);
+    (painter, state_handler)
 }
 
 impl EguiStateHandler {
-    pub fn new(painter: Painter) -> (Painter, EguiStateHandler) {
+    pub fn new(painter: &Painter) -> Self {
         let mut input = egui::RawInput {
             screen_rect: Some(painter.screen_rect),
             ..Default::default()
@@ -117,14 +118,13 @@ impl EguiStateHandler {
             .or_default()
             .native_pixels_per_point = Some(painter.pixels_per_point);
         let native_pixels_per_point = painter.pixels_per_point;
-        let _self = EguiStateHandler {
+        Self {
             fused_cursor: FusedCursor::default(),
             pointer_pos: Pos2::new(0f32, 0f32),
             input,
             modifiers: Modifiers::default(),
             native_pixels_per_point,
-        };
-        (painter, _self)
+        }
     }
 
     pub fn process_input(
