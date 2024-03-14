@@ -51,21 +51,26 @@ fn main() {
     let mut quit = false;
     let mut slider = 0.0;
 
+    if enable_vsync {
+        if let Err(error) = window.subsystem().gl_set_swap_interval(SwapInterval::VSync) {
+            println!(
+                "Failed to gl_set_swap_interval(SwapInterval::VSync): {}",
+                error
+            );
+        }
+    } else if let Err(error) = window
+        .subsystem()
+        .gl_set_swap_interval(SwapInterval::Immediate)
+    {
+        println!(
+            "Failed to gl_set_swap_interval(SwapInterval::Immediate): {}",
+            error
+        );
+    }
+
     let start_time = Instant::now();
 
     'running: loop {
-        if enable_vsync {
-            window
-                .subsystem()
-                .gl_set_swap_interval(SwapInterval::VSync)
-                .unwrap()
-        } else {
-            window
-                .subsystem()
-                .gl_set_swap_interval(SwapInterval::Immediate)
-                .unwrap()
-        }
-
         unsafe {
             // Clear the screen to green
             gl::ClearColor(0.3, 0.6, 0.3, 1.0);
@@ -90,9 +95,10 @@ fn main() {
 
         let FullOutput {
             platform_output,
-            repaint_after,
             textures_delta,
             shapes,
+            pixels_per_point,
+            viewport_output,
         } = egui_ctx.end_frame();
 
         // Process ouput
@@ -106,9 +112,14 @@ fn main() {
         //     window.set_size(w, h).unwrap();
         // }
 
-        let paint_jobs = egui_ctx.tessellate(shapes);
+        let paint_jobs = egui_ctx.tessellate(shapes, pixels_per_point);
         painter.paint_jobs(None, textures_delta, paint_jobs);
         window.gl_swap_window();
+
+        let repaint_after = viewport_output
+            .get(&egui::ViewportId::ROOT)
+            .expect("Missing ViewportId::ROOT")
+            .repaint_delay;
 
         if !repaint_after.is_zero() {
             if let Some(event) = event_pump.wait_event_timeout(5) {

@@ -1,6 +1,7 @@
 #[cfg(not(feature = "use_epi"))]
 compile_error!("feature \"use_epi\" must be used");
 
+use egui::ViewportId;
 use egui_backend::{
     egui::{self, FullOutput},
     epi::{Frame, IntegrationInfo},
@@ -49,10 +50,12 @@ fn main() {
     debug_assert_eq!(gl_attr.context_version(), (3, 2));
 
     // Enable vsync
-    window
-        .subsystem()
-        .gl_set_swap_interval(SwapInterval::VSync)
-        .unwrap();
+    if let Err(error) = window.subsystem().gl_set_swap_interval(SwapInterval::VSync) {
+        println!(
+            "Failed to gl_set_swap_interval(SwapInterval::VSync): {}",
+            error
+        );
+    }
 
     // Init egui stuff
     let (mut painter, mut egui_state) =
@@ -84,9 +87,10 @@ fn main() {
 
         let FullOutput {
             platform_output,
-            repaint_after,
             textures_delta,
             shapes,
+            pixels_per_point,
+            viewport_output,
         } = egui_ctx.end_frame();
         // Process ouput
         egui_state.process_output(&window, &platform_output);
@@ -94,6 +98,11 @@ fn main() {
         if frame.take_app_output().quit {
             break 'running;
         }
+
+        let repaint_after = viewport_output
+            .get(&ViewportId::ROOT)
+            .expect("Missing ViewportId::ROOT")
+            .repaint_delay;
 
         if !repaint_after.is_zero() {
             // Reactive every 1 second.
@@ -126,7 +135,7 @@ fn main() {
         //     window.set_size(w, h).unwrap();
         // }
 
-        let paint_jobs = egui_ctx.tessellate(shapes);
+        let paint_jobs = egui_ctx.tessellate(shapes, pixels_per_point);
 
         // An example of how OpenGL can be used to draw custom stuff with egui
         // overlaying it:

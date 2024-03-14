@@ -2,6 +2,7 @@ use std::time::Instant;
 
 //Alias the backend to something less mouthful
 use egui::load::SizedTexture;
+use egui::ViewportId;
 use egui_backend::egui::{vec2, Color32, FullOutput, Image};
 use egui_backend::sdl2::video::GLProfile;
 use egui_backend::{egui, gl, sdl2};
@@ -48,10 +49,12 @@ fn main() {
     debug_assert_eq!(gl_attr.context_version(), (3, 2));
 
     // Enable vsync
-    window
-        .subsystem()
-        .gl_set_swap_interval(SwapInterval::VSync)
-        .unwrap();
+    if let Err(error) = window.subsystem().gl_set_swap_interval(SwapInterval::VSync) {
+        println!(
+            "Failed to gl_set_swap_interval(SwapInterval::VSync): {}",
+            error
+        );
+    };
 
     // Init egui stuff
     let (mut painter, mut egui_state) =
@@ -139,14 +142,15 @@ fn main() {
 
         let FullOutput {
             platform_output,
-            repaint_after,
             textures_delta,
             shapes,
+            pixels_per_point,
+            viewport_output,
         } = egui_ctx.end_frame();
         // Process output
         egui_state.process_output(&window, &platform_output);
 
-        let paint_jobs = egui_ctx.tessellate(shapes);
+        let paint_jobs = egui_ctx.tessellate(shapes, pixels_per_point);
 
         // Note: passing a bg_color to paint_jobs will clear any previously drawn stuff.
         // Use this only if egui is being used for all drawing and you aren't mixing your own Open GL
@@ -155,6 +159,11 @@ fn main() {
         painter.paint_jobs(None, textures_delta, paint_jobs);
 
         window.gl_swap_window();
+
+        let repaint_after = viewport_output
+            .get(&ViewportId::ROOT)
+            .expect("Missing ViewportId::ROOT")
+            .repaint_delay;
 
         if !repaint_after.is_zero() {
             if let Some(event) = event_pump.wait_event_timeout(5) {

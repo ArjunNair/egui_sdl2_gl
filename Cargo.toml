@@ -1,6 +1,6 @@
 [package]
 name = "egui_sdl2_gl"
-version = "0.23.0"
+version = "0.26.2"
 authors = ["Arjun Nair <arjunair@gmail.com>"]
 edition = "2018"
 description = "Backend for Egui to use with sdl2-rs and open gl"
@@ -15,15 +15,16 @@ include = ["**/*.rs", "Cargo.toml"]
 [dependencies]
 ahash = "~0.8"
 gl = "~0.14"
-egui = "~0.23"
-sdl2 = { version = "~0.35" }
+egui = "~0.26"
+sdl2 = { version = "~0.36" }
+memoffset = "0.9.0"
 
 [dependencies.epi]
 version = "0.17"
 optional = true
 
 [features]
-default-features = ["sdl2_bundled"]
+default = ["sdl2_bundled"]
 
 sdl2_unsafe_textures = ["sdl2/unsafe_textures"]
 sdl2_gfx = ["sdl2/gfx"]
@@ -40,4 +41,4 @@ sdl2_static-link = ["sdl2/static-link"]
 use_epi = ["epi"]
 
 [dev-dependencies]
-egui_demo_lib = "0.23.0"
+egui_demo_lib = "~0.26"
