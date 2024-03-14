@@ -10,7 +10,7 @@ readme = "README.md"
 repository = "https://github.com/ArjunNair/egui_sdl2_gl"
 categories = ["gui", "graphics"]
 keywords = ["sdl2", "opengl", "egui", "gui", "gamedev"]
-include = ["**/*.rs", "Cargo.toml"]
+include = ["**/*.rs", "Cargo.toml", "/shaders"]
 
 [dependencies]
 ahash = "~0.8"
