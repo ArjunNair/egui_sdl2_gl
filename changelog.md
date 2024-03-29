@@ -2,6 +2,9 @@
 
 NOTE: The major version number of this library matches that of the egui major version that this library currently supports. The minor version number may be different though. 
 
+# v0.27.0
+* Updated to egui v0.27 and refactored EguiStateHandler. Thanks [David Cohen](https://github.com/osimarr)
+
 # v0.26.2
 * Updated to egui v0.26 and refactored some stuff. Thanks [David Cohen](https://github.com/osimarr)
 
