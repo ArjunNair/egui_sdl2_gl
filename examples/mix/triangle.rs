@@ -1,6 +1,7 @@
-// Draws a simple white triangle
+// Draws a simple colored triangle
 // based on the example from:
 // https://github.com/brendanzab/gl-rs/blob/master/gl/examples/triangle.rs
+// and https://learnopengl.com/Getting-started/Shaders
 
 use egui_sdl2_gl::gl;
 use egui_sdl2_gl::gl::types::*;
@@ -11,21 +12,31 @@ use std::str;
 
 const VS_SRC: &str = "
 #version 150
-in vec2 position;
+in vec3 aPosition;
+in vec3 aColor;
+
+out vec3 color;
 
 void main() {
-    gl_Position = vec4(position, 0.0, 1.0);
+    gl_Position = vec4(aPosition, 1.0);
+    color = aColor;
 }";
 
 const FS_SRC: &str = "
 #version 150
 out vec4 out_color;
+in vec3 color;
 
 void main() {
-    out_color = vec4(1.0, 1.0, 1.0, 1.0);
+    out_color = vec4(color, 1.0);
 }";
 
-static VERTEX_DATA: [GLfloat; 6] = [0.0, 0.5, 0.5, -0.5, -0.5, -0.5];
+static VERTEX_DATA: [GLfloat; 18] = [
+    // position         //rgb color
+    0.0, 0.5, 0.0,      0.0, 0.0, 1.0,
+    0.5, -0.5, 0.0,     0.0, 1.0, 0.0,
+    -0.5,-0.5, 0.0,     1.0, 0.0, 0.0
+];
 
 pub struct Triangle {
     pub program: GLuint,
@@ -116,44 +127,57 @@ impl Triangle {
         unsafe {
             gl::GenVertexArrays(1, &mut vao);
             gl::GenBuffers(1, &mut vbo);
-        }
-        Triangle { program, vao, vbo }
-    }
 
-    pub fn draw(&self) {
-        unsafe {
-            gl::BindVertexArray(self.vao);
+            // Create a VAO since the data is setup only once.
+            gl::BindVertexArray(vao);
 
             // Create a Vertex Buffer Object and copy the vertex data to it
-
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
                 (VERTEX_DATA.len() * mem::size_of::<GLfloat>()) as GLsizeiptr,
                 mem::transmute(&VERTEX_DATA[0]),
                 gl::STATIC_DRAW,
             );
-
-            // Use shader program
-            gl::UseProgram(self.program);
-            let c_out_color = CString::new("out_color").unwrap();
-            gl::BindFragDataLocation(self.program, 0, c_out_color.as_ptr());
-
+            
             // Specify the layout of the vertex data
-            let c_position = CString::new("position").unwrap();
-            let pos_attr = gl::GetAttribLocation(self.program, c_position.as_ptr());
+            let c_position = CString::new("aPosition").unwrap();
+            let pos_attr = gl::GetAttribLocation(program, c_position.as_ptr());
             gl::EnableVertexAttribArray(pos_attr as GLuint);
             gl::VertexAttribPointer(
                 pos_attr as GLuint,
-                2,
+                3,
                 gl::FLOAT,
                 gl::FALSE as GLboolean,
-                0,
+                6 * mem::size_of::<GLfloat>() as i32,
                 ptr::null(),
             );
 
+            let c_color = CString::new("aColor").unwrap();
+            let color_attr = gl::GetAttribLocation(program, c_color.as_ptr());
+            gl::EnableVertexAttribArray(color_attr as GLuint);
+            gl::VertexAttribPointer(
+                color_attr as GLuint,
+                3,
+                gl::FLOAT,
+                gl::FALSE as GLboolean,
+                6 * mem::size_of::<GLfloat>() as i32,
+                (3 * mem::size_of::<GLfloat>()) as *const gl::types::GLvoid,
+            );
+        }
+        Triangle { program, vao, vbo }
+    }
+
+    pub fn draw(&self) {
+        unsafe {
+            // Use the VAO created previously
+            gl::BindVertexArray(self.vao); 
+            // Use shader program
+            gl::UseProgram(self.program);
             // Draw a triangle from the 3 vertices
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
+            // Unbind the VAO
+            gl::BindVertexArray(0); 
         }
     }
 }
