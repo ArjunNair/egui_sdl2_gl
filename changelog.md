@@ -2,6 +2,10 @@
 
 NOTE: The major version number of this library matches that of the egui major version that this library currently supports. The minor version number may be different though. 
 
+# v0.27.1
+* Added support for SDL v0.37. Thanks [Cobrand](https://github.com/Cobrand)
+* Updated triangle example to a colored one. Because why not.
+
 # v0.27.0
 * Updated to egui v0.27 and refactored EguiStateHandler. Thanks [David Cohen](https://github.com/osimarr)
 
