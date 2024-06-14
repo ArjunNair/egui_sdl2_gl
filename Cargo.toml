@@ -16,7 +16,7 @@ include = ["**/*.rs", "Cargo.toml", "/shaders"]
 ahash = "~0.8"
 gl = "~0.14"
 egui = "~0.27"
-sdl2 = { version = "~0.36" }
+sdl2 = { version = ">= 0.36, < 0.38" }
 memoffset = "0.9.0"
 
 [dependencies.epi]
