@@ -31,6 +31,7 @@ void main() {
     out_color = vec4(color, 1.0);
 }";
 
+#[rustfmt::skip]
 static VERTEX_DATA: [GLfloat; 18] = [
     // position         //rgb color
     0.0, 0.5, 0.0,      0.0, 0.0, 1.0,
@@ -139,7 +140,7 @@ impl Triangle {
                 mem::transmute(&VERTEX_DATA[0]),
                 gl::STATIC_DRAW,
             );
-            
+
             // Specify the layout of the vertex data
             let c_position = CString::new("aPosition").unwrap();
             let pos_attr = gl::GetAttribLocation(program, c_position.as_ptr());
@@ -171,13 +172,13 @@ impl Triangle {
     pub fn draw(&self) {
         unsafe {
             // Use the VAO created previously
-            gl::BindVertexArray(self.vao); 
+            gl::BindVertexArray(self.vao);
             // Use shader program
             gl::UseProgram(self.program);
             // Draw a triangle from the 3 vertices
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
             // Unbind the VAO
-            gl::BindVertexArray(0); 
+            gl::BindVertexArray(0);
         }
     }
 }
