@@ -41,14 +41,14 @@ impl RepaintSignal for Signal {
 }
 
 pub struct FusedCursor {
-    pub cursor: Cursor,
+    pub cursor: Option<Cursor>,
     pub icon: SystemCursor,
 }
 
 impl FusedCursor {
     pub fn new() -> Self {
         Self {
-            cursor: Cursor::from_system(SystemCursor::Arrow).unwrap(),
+            cursor: Cursor::from_system(SystemCursor::Arrow).ok(),
             icon: SystemCursor::Arrow,
         }
     }
@@ -422,8 +422,10 @@ pub fn translate_cursor(fused: &mut FusedCursor, cursor_icon: egui::CursorIcon) 
     };
 
     if tmp_icon != fused.icon {
-        fused.cursor = Cursor::from_system(tmp_icon).unwrap();
+        fused.cursor = Cursor::from_system(tmp_icon).ok();
         fused.icon = tmp_icon;
-        fused.cursor.set();
+        if let Some(cursor) = &fused.cursor {
+            cursor.set();
+        }
     }
 }
