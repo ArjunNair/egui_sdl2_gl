@@ -171,7 +171,10 @@ pub fn input_to_egui(
     }
     match event {
         // Handle when window Resized and SizeChanged.
-        Window { win_event: WindowEvent::Resized(_, _) | WindowEvent::SizeChanged(_, _), .. } => {
+        Window {
+            win_event: WindowEvent::Resized(_, _) | WindowEvent::SizeChanged(_, _),
+            ..
+        } => {
             painter.update_screen_rect(window.drawable_size());
             state.input.screen_rect = Some(painter.screen_rect);
         }
