@@ -170,14 +170,11 @@ pub fn input_to_egui(
         return;
     }
     match event {
-        // handle when window Resized and SizeChanged.
-        Window { win_event, .. } => match win_event {
-            WindowEvent::Resized(_, _) | sdl2::event::WindowEvent::SizeChanged(_, _) => {
-                painter.update_screen_rect(window.drawable_size());
-                state.input.screen_rect = Some(painter.screen_rect);
-            }
-            _ => (),
-        },
+        // Handle when window Resized and SizeChanged.
+        Window { win_event: WindowEvent::Resized(_, _) | WindowEvent::SizeChanged(_, _), .. } => {
+            painter.update_screen_rect(window.drawable_size());
+            state.input.screen_rect = Some(painter.screen_rect);
+        }
 
         //MouseButonLeft pressed is the only one needed by egui
         MouseButtonDown { mouse_btn, .. } => {
