@@ -166,7 +166,7 @@ fn main() {
             .repaint_delay;
 
         if !repaint_after.is_zero() {
-            if let Some(event) = event_pump.wait_event_timeout(5) {
+            if let Some(event) = event_pump.wait_event_timeout(4) {
                 match event {
                     Event::Quit { .. } => break 'running,
                     _ => {
