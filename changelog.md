@@ -2,6 +2,9 @@
 
 NOTE: The major version number of this library matches that of the egui major version that this library currently supports. The minor version number may be different though. 
 
+# v0.28.0
+* Updated to egui v0.28.
+
 # v0.27.2
 * Handle cursor not being available on some systems like an embedded device. Thanks [Sky Leite](https://github.com/SkyLeite)
 * Some minor fixes for cargo clippy and fmt.
