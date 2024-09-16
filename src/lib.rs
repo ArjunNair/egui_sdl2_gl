@@ -319,17 +319,11 @@ pub fn input_to_egui(
 
         MouseWheel { x, y, .. } => {
             let delta = vec2(x as f32 * 8.0, y as f32 * 8.0);
-            let sdl = window.subsystem().sdl();
-            if sdl.keyboard().mod_state() & Mod::LCTRLMOD == Mod::LCTRLMOD
-                || sdl.keyboard().mod_state() & Mod::RCTRLMOD == Mod::RCTRLMOD
-            {
-                state
-                    .input
-                    .events
-                    .push(Event::Zoom((delta.y / 125.0).exp()));
-            } else {
-                state.input.events.push(Event::Scroll(delta));
-            }
+            state.input.events.push(Event::MouseWheel {
+                unit: MouseWheelUnit::Point,
+                delta,
+                modifiers: state.modifiers,
+            });
         }
 
         _ => {
