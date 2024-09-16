@@ -2,6 +2,11 @@
 
 NOTE: The major version number of this library matches that of the egui major version that this library currently supports. The minor version number may be different though. 
 
+# v0.27.2
+* Handle cursor not being available on some systems like an embedded device. Thanks [Sky Leite](https://github.com/SkyLeite)
+* Some minor fixes for cargo clippy and fmt.
+* Updated screenshot on github to match example code.
+
 # v0.27.1
 * Added support for SDL v0.37. Thanks [Cobrand](https://github.com/Cobrand)
 * Updated triangle example to a colored one. Because why not.
