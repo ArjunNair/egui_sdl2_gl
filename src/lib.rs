@@ -141,15 +141,16 @@ impl EguiStateHandler {
         window: &sdl2::video::Window,
         egui_output: &egui::PlatformOutput,
     ) {
-        if !egui_output.copied_text.is_empty() {
-            let copied_text = egui_output.copied_text.clone();
-            {
-                let result = window
-                    .subsystem()
-                    .clipboard()
-                    .set_clipboard_text(&copied_text);
-                if result.is_err() {
-                    dbg!("Unable to set clipboard content to SDL clipboard.");
+        for command in &egui_output.commands {
+            if let OutputCommand::CopyText(copied_text) = command {
+                if !copied_text.is_empty() {
+                    let text = copied_text.clone();
+                    {
+                        let result = window.subsystem().clipboard().set_clipboard_text(&text);
+                        if result.is_err() {
+                            dbg!("Unable to set clipboard content to SDL clipboard.");
+                        }
+                    }
                 }
             }
         }
