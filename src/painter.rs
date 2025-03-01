@@ -19,7 +19,7 @@ const ADAPTIVE_VERT_SRC: &str = include_str!("../shaders/adaptive.vert");
 const ADAPTIVE_FRAG_SRC: &str = include_str!("../shaders/adaptive.frag");
 
 #[derive(Default)]
-struct Texture {
+pub struct Texture {
     size: (usize, usize),
 
     /// Pending upload (will be emptied later).
@@ -163,6 +163,26 @@ impl Painter {
                 screen_rect,
             }
         }
+    }
+
+    pub fn get_texture(&self, id: &egui::TextureId) -> Option<&Texture> {
+        self.textures.get(id)
+    }
+
+    pub fn get_raw_gl_texture_id(&self, id: &egui::TextureId) -> Option<GLuint> {
+        self.textures.get(id)?.gl_id
+    }
+
+    pub fn set_raw_gl_texture_id(
+        &mut self,
+        egui_tex_id: &egui::TextureId,
+        gl_tex_id: GLuint,
+    ) -> bool {
+        if let Some(texture) = self.textures.get_mut(egui_tex_id) {
+            texture.gl_id = Some(gl_tex_id);
+            return true;
+        }
+        false
     }
 
     pub fn update_screen_rect(&mut self, size: (u32, u32)) {
@@ -441,7 +461,7 @@ impl Painter {
         } else {
             let texture_filtering: bool = true;
             let mut texture_gl_id = Option::None;
-            Self::generate_gl_texture2d(
+            Self::use_gl_texture2d(
                 &mut texture_gl_id,
                 &pixels,
                 texture_width as i32,
@@ -472,7 +492,7 @@ impl Painter {
             let height = texture.size.1 as i32;
             let filtering = texture.filtering;
             let mut gl_id = texture.gl_id;
-            Self::generate_gl_texture2d(&mut gl_id, &texture.pixels, width, height, filtering);
+            Self::use_gl_texture2d(&mut gl_id, &texture.pixels, width, height, filtering);
 
             texture.gl_id = gl_id;
             texture.dirty = false;
@@ -569,7 +589,7 @@ impl Painter {
         }
     }
 
-    fn generate_gl_texture2d(
+    fn use_gl_texture2d(
         gl_id: &mut Option<GLuint>,
         pixels: &[u8],
         width: i32,
