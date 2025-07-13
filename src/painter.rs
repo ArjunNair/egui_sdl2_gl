@@ -424,10 +424,6 @@ impl Painter {
                     .flat_map(|colour| colour.to_array())
                     .collect()
             }
-            egui::ImageData::Font(image) => image
-                .srgba_pixels(None)
-                .flat_map(|colour| colour.to_array())
-                .collect(),
         };
         let texture_width = delta.image.width();
         let texture_height = delta.image.height();
