@@ -68,7 +68,7 @@ fn main() {
 
     'running: loop {
         egui_state.input.time = Some(start_time.elapsed().as_secs_f64());
-        egui_ctx.begin_frame(egui_state.input.take());
+        egui_ctx.begin_pass(egui_state.input.take());
         // Begin frame
         let frame_time = get_frame_time(start_time);
         let frame = Frame::new(FrameData {
@@ -91,7 +91,7 @@ fn main() {
             shapes,
             pixels_per_point,
             viewport_output,
-        } = egui_ctx.end_frame();
+        } = egui_ctx.end_pass();
         // Process ouput
         egui_state.process_output(&window, &platform_output);
         // Quite if needed.

@@ -89,7 +89,7 @@ fn main() {
 
     'running: loop {
         egui_state.input.time = Some(start_time.elapsed().as_secs_f64());
-        egui_ctx.begin_frame(egui_state.input.take());
+        egui_ctx.begin_pass(egui_state.input.take());
 
         // An example of how OpenGL can be used to draw custom stuff with egui
         // overlaying it:
@@ -146,7 +146,7 @@ fn main() {
             shapes,
             pixels_per_point,
             viewport_output,
-        } = egui_ctx.end_frame();
+        } = egui_ctx.end_pass();
         // Process output
         egui_state.process_output(&window, &platform_output);
 

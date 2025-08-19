@@ -78,7 +78,7 @@ fn main() {
         }
 
         egui_state.input.time = Some(start_time.elapsed().as_secs_f64());
-        egui_ctx.begin_frame(egui_state.input.take());
+        egui_ctx.begin_pass(egui_state.input.take());
 
         egui::CentralPanel::default().show(&egui_ctx, |ui| {
             ui.label(" ");
@@ -99,7 +99,7 @@ fn main() {
             shapes,
             pixels_per_point,
             viewport_output,
-        } = egui_ctx.end_frame();
+        } = egui_ctx.end_pass();
 
         // Process ouput
         egui_state.process_output(&window, &platform_output);
