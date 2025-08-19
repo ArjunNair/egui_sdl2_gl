@@ -2,6 +2,9 @@
 
 NOTE: The major version number of this library matches that of the egui major version that this library currently supports. The minor version number may be different though. 
 
+# v0.32.0
+* Updated to egui v0.32 Thanks [David Cohen](https://github.com/osimarr)
+
 # v0.28.0
 * Updated to egui v0.28.
 
