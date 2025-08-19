@@ -49,6 +49,7 @@ pub struct Painter {
     pub pixels_per_point: f32,
     pub canvas_size: (u32, u32),
     pub screen_rect: Rect,
+    pub texture_unit: usize,
 }
 
 macro_rules! get_gl_error {
@@ -161,6 +162,7 @@ impl Painter {
                 textures: Default::default(),
                 canvas_size: (width, height),
                 screen_rect,
+                texture_unit: 0, // Default texture unit
             }
         }
     }
@@ -289,6 +291,7 @@ impl Painter {
         unsafe {
             gl::PixelStorei(gl::UNPACK_ROW_LENGTH, 0);
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 4);
+            gl::ActiveTexture(gl::TEXTURE0 + self.texture_unit as GLenum);
         }
 
         for (texture_id, delta) in textures_delta.set {
@@ -318,7 +321,6 @@ impl Painter {
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::ONE, gl::ONE_MINUS_SRC_ALPHA); // premultiplied alpha
             gl::UseProgram(self.program);
-            gl::ActiveTexture(gl::TEXTURE0);
 
             let u_screen_size = CString::new("u_screen_size").unwrap();
             let u_screen_size_ptr = u_screen_size.as_ptr();
@@ -380,6 +382,7 @@ impl Painter {
                 }
             }
 
+            gl::BindTexture(gl::TEXTURE_2D, 0);
             gl::Disable(gl::SCISSOR_TEST);
             gl::Disable(gl::FRAMEBUFFER_SRGB);
             gl::Disable(gl::BLEND);
@@ -424,10 +427,6 @@ impl Painter {
                     .flat_map(|colour| colour.to_array())
                     .collect()
             }
-            egui::ImageData::Font(image) => image
-                .srgba_pixels(None)
-                .flat_map(|colour| colour.to_array())
-                .collect(),
         };
         let texture_width = delta.image.width();
         let texture_height = delta.image.height();
