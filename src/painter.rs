@@ -619,7 +619,8 @@ impl Painter {
             }
 
             let mipmap_level = 0;
-            let internal_format = gl::RGBA;
+            // Use GL_RGBA8 (sized internal format) which works in both Core and Compatibility profiles
+            let internal_format = gl::RGBA8;
             let border = 0;
             let src_format = gl::RGBA;
             let src_type = gl::UNSIGNED_BYTE;

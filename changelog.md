@@ -2,6 +2,10 @@
 
 NOTE: The major version number of this library matches that of the egui major version that this library currently supports. The minor version number may be different though.
 
+# v0.33.2
+
+* Changed texture internal format to gl::RGBA8 which fixes rendering with OpenGL 3.3 Core on MacOS
+
 # v0.33.1
 
 * Fixed texture updates not being applied correctly leading to broken rendering.
