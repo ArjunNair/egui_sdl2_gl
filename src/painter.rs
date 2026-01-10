@@ -437,14 +437,17 @@ impl Painter {
                 let patch_y = patch_pos[1];
                 let patch_width = texture_width;
                 let patch_height = texture_height;
-                if texture.gl_id.is_some() {
+                if let Some(texture_gl_id) = texture.gl_id {
                     unsafe {
+                        // Bind the texture before updating it
+                        gl::BindTexture(gl::TEXTURE_2D, texture_gl_id);
+                        
                         let mipmap_level = 0;
                         let internal_format = gl::RGBA;
                         let texture_type = gl::UNSIGNED_BYTE;
 
                         gl::TexSubImage2D(
-                            texture.gl_id.unwrap(),
+                            gl::TEXTURE_2D,
                             mipmap_level,
                             patch_x as i32,
                             patch_y as i32,
