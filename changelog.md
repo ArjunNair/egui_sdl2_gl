@@ -2,6 +2,10 @@
 
 NOTE: The major version number of this library matches that of the egui major version that this library currently supports. The minor version number may be different though.
 
+# v0.33.1
+
+* Fixed texture updates not being applied correctly leading to broken rendering.
+
 # v0.33.0
 
 * Updated to egui v0.33
