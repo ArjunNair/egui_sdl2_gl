@@ -441,7 +441,6 @@ impl Painter {
                     unsafe {
                         // Bind the texture before updating it
                         gl::BindTexture(gl::TEXTURE_2D, texture_gl_id);
-                        
                         let mipmap_level = 0;
                         let internal_format = gl::RGBA;
                         let texture_type = gl::UNSIGNED_BYTE;
