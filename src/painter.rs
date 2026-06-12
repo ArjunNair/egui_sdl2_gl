@@ -187,6 +187,28 @@ impl Painter {
         false
     }
 
+    pub fn add_raw_gl_texture(
+        &mut self,
+        gl_id: GLuint,
+        size: (usize, usize),
+        filtering: bool
+    ) -> egui::TextureId {
+        let pixels = Vec::<u8>::new();
+        let id = egui::TextureId::User(self.textures.len() as u64);
+        self.textures.insert(
+            id,
+            Texture {
+                size,
+                pixels,
+                gl_id: Some(gl_id),
+                filtering,
+                dirty: false
+            },
+        );
+
+        id
+    }
+
     pub fn update_screen_rect(&mut self, size: (u32, u32)) {
         self.canvas_size = size;
         let (x, y) = size;
