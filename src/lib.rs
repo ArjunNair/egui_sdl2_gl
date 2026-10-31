@@ -5,6 +5,8 @@
 pub use egui;
 pub use gl;
 pub use sdl2;
+pub mod mainloop;
+pub use mainloop::App;
 pub mod painter;
 #[cfg(feature = "use_epi")]
 pub use epi;
@@ -132,8 +134,9 @@ impl EguiStateHandler {
         window: &sdl2::video::Window,
         event: sdl2::event::Event,
         painter: &mut Painter,
+        should_quit: &mut bool,
     ) {
-        input_to_egui(window, event, painter, self);
+        input_to_egui(window, event, painter, self, should_quit);
     }
 
     pub fn process_output(
@@ -163,6 +166,7 @@ pub fn input_to_egui(
     event: sdl2::event::Event,
     painter: &mut Painter,
     state: &mut EguiStateHandler,
+    should_quit: &mut bool,
 ) {
     use sdl2::event::Event::*;
 
@@ -171,6 +175,12 @@ pub fn input_to_egui(
         return;
     }
     match event {
+        Quit { .. }
+        | Window {
+            win_event: WindowEvent::Close,
+            ..
+        } => *should_quit = true,
+
         // Handle when window Resized and SizeChanged.
         Window {
             win_event: WindowEvent::Resized(_, _) | WindowEvent::SizeChanged(_, _),

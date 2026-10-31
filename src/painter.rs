@@ -396,7 +396,7 @@ impl Painter {
     pub fn cleanup(&self) {
         unsafe {
             gl::DeleteSync(self.gl_sync_fence);
-            for (_, texture) in self.textures.iter() {
+            for texture in self.textures.values() {
                 if let Some(texture_gl_id) = texture.gl_id {
                     gl::DeleteTextures(1, &texture_gl_id);
                 }
@@ -484,7 +484,7 @@ impl Painter {
     }
 
     fn upload_user_textures(&mut self) {
-        for (_, texture) in self.textures.iter_mut() {
+        for texture in self.textures.values_mut() {
             if !texture.dirty {
                 continue;
             }
